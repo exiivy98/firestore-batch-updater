@@ -1,0 +1,41 @@
+# Source files (only include dist/)
+src/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+
+# Examples and docs (optional - you can include these)
+examples/
+PACKAGE_JSON_GUIDE.md
+TSCONFIG_GUIDE.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Others
+node_modules/
+*.log
+.DS_Store
+.env
+.env.*
+docs/
