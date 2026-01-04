@@ -1,5 +1,7 @@
 # Firestore Batch Updater
 
+[![npm version](https://img.shields.io/npm/v/firestore-batch-updater.svg)](https://www.npmjs.com/package/firestore-batch-updater)
+
 쿼리 기반 필터링과 진행 상황 추적 기능을 제공하는 Firebase Firestore 대량 업데이트 라이브러리입니다.
 
 [English](./README.md) | 한국어

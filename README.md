@@ -1,5 +1,7 @@
 # Firestore Batch Updater
 
+[![npm version](https://img.shields.io/npm/v/firestore-batch-updater.svg)](https://www.npmjs.com/package/firestore-batch-updater)
+
 Easy batch updates for Firebase Firestore with query-based filtering and progress tracking.
 
 English | [한국어](./README.ko.md)
