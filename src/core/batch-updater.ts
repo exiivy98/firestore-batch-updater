@@ -16,12 +16,15 @@ import type {
   PreviewResult,
   DocumentSnapshot,
   WhereCondition,
-  FieldValue,
+  OrderByCondition,
+  FieldValueResult,
   CreateDocumentInput,
   CreateOptions,
   CreateResult,
   UpsertOptions,
   UpsertResult,
+  DeleteOptions,
+  DeleteResult,
 } from "../types";
 
 import {
@@ -39,6 +42,8 @@ export class BatchUpdater {
   private firestore: Firestore;
   private collectionPath?: string;
   private conditions: WhereCondition[] = [];
+  private orderByConditions: OrderByCondition[] = [];
+  private limitCount?: number;
 
   /**
    * Create a new BatchUpdater instance
@@ -55,7 +60,9 @@ export class BatchUpdater {
    */
   collection(path: string): this {
     this.collectionPath = path;
-    this.conditions = []; // Reset conditions for new collection
+    this.conditions = [];
+    this.orderByConditions = [];
+    this.limitCount = undefined;
     return this;
   }
 
@@ -68,6 +75,27 @@ export class BatchUpdater {
    */
   where(field: string, operator: WhereFilterOp, value: any): this {
     this.conditions.push({ field, operator, value });
+    return this;
+  }
+
+  /**
+   * Add an orderBy clause to sort documents
+   * @param field - Field path to sort by
+   * @param direction - Sort direction ('asc' or 'desc'), defaults to 'asc'
+   * @returns This instance for chaining
+   */
+  orderBy(field: string, direction: "asc" | "desc" = "asc"): this {
+    this.orderByConditions.push({ field, direction });
+    return this;
+  }
+
+  /**
+   * Limit the number of documents to process
+   * @param count - Maximum number of documents
+   * @returns This instance for chaining
+   */
+  limit(count: number): this {
+    this.limitCount = count;
     return this;
   }
 
@@ -319,13 +347,13 @@ export class BatchUpdater {
    * @param fieldPath - Field path to retrieve
    * @returns Array of field values with document IDs
    */
-  async getFields(fieldPath: string): Promise<FieldValue[]> {
+  async getFields(fieldPath: string): Promise<FieldValueResult[]> {
     this.validateSetup();
 
     const query = this.buildQuery();
     const snapshot = await query.get();
 
-    const results: FieldValue[] = [];
+    const results: FieldValueResult[] = [];
 
     for (const doc of snapshot.docs) {
       const data = doc.data();
@@ -627,6 +655,202 @@ export class BatchUpdater {
   }
 
   /**
+   * Delete documents matching query conditions
+   * @param options - Delete options (e.g., progress callback, log options, batchSize for pagination)
+   * @returns Delete result with success/failure counts, deleted IDs, and optional log file path
+   */
+  async delete(
+    options: DeleteOptions = {}
+  ): Promise<DeleteResult & { logFilePath?: string }> {
+    this.validateSetup();
+
+    // Initialize log collector if logging is enabled
+    const logCollector = options.log?.enabled
+      ? createLogCollector("delete", this.collectionPath!, this.conditions)
+      : null;
+
+    let successCount = 0;
+    let failureCount = 0;
+    let totalCount = 0;
+    const deletedIds: string[] = [];
+    const failedDocIds: string[] = [];
+
+    // Use pagination if batchSize is set
+    if (options.batchSize && options.batchSize > 0) {
+      // First, get total count for progress tracking
+      const countQuery = this.buildQuery();
+      const countSnapshot = await countQuery.count().get();
+      totalCount = countSnapshot.data().count;
+
+      if (totalCount === 0) {
+        const result: DeleteResult & { logFilePath?: string } = {
+          successCount: 0,
+          failureCount: 0,
+          totalCount: 0,
+          deletedIds: [],
+        };
+
+        if (logCollector && options.log) {
+          result.logFilePath = logCollector.finalize(options.log);
+        }
+
+        return result;
+      }
+
+      let processedCount = 0;
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+
+      while (true) {
+        // Build paginated query
+        let paginatedQuery = this.buildQuery().limit(options.batchSize);
+        if (lastDoc) {
+          paginatedQuery = paginatedQuery.startAfter(lastDoc);
+        }
+
+        const snapshot = await paginatedQuery.get();
+
+        if (snapshot.empty) {
+          break;
+        }
+
+        // Process this batch
+        const bulkWriter = this.firestore.bulkWriter();
+        const docIdMap = new Map<string, string>();
+
+        for (const doc of snapshot.docs) {
+          docIdMap.set(doc.ref.path, doc.id);
+        }
+
+        bulkWriter.onWriteResult((ref) => {
+          successCount++;
+          processedCount++;
+
+          const docId = docIdMap.get(ref.path) || ref.id;
+          deletedIds.push(docId);
+          logCollector?.addEntry(docId, "success");
+
+          if (options.onProgress) {
+            const progress = calculateProgress(processedCount, totalCount);
+            options.onProgress(progress);
+          }
+        });
+
+        bulkWriter.onWriteError((error) => {
+          failureCount++;
+          processedCount++;
+
+          const docId = error.documentRef?.id || "unknown";
+          failedDocIds.push(docId);
+          logCollector?.addEntry(docId, "failure", error.message);
+
+          if (options.onProgress) {
+            const progress = calculateProgress(processedCount, totalCount);
+            options.onProgress(progress);
+          }
+
+          return false;
+        });
+
+        for (const doc of snapshot.docs) {
+          bulkWriter.delete(doc.ref);
+        }
+
+        await bulkWriter.close();
+
+        // Update cursor for next batch
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+        // If we got fewer docs than batchSize, we're done
+        if (snapshot.docs.length < options.batchSize) {
+          break;
+        }
+      }
+    } else {
+      // Original behavior: load all documents at once
+      const query = this.buildQuery();
+      const snapshot = await query.get();
+
+      totalCount = snapshot.size;
+
+      if (totalCount === 0) {
+        const result: DeleteResult & { logFilePath?: string } = {
+          successCount: 0,
+          failureCount: 0,
+          totalCount: 0,
+          deletedIds: [],
+        };
+
+        if (logCollector && options.log) {
+          result.logFilePath = logCollector.finalize(options.log);
+        }
+
+        return result;
+      }
+
+      const bulkWriter = this.firestore.bulkWriter();
+
+      let processedCount = 0;
+
+      // Map to track document IDs for logging
+      const docIdMap = new Map<string, string>();
+      for (const doc of snapshot.docs) {
+        docIdMap.set(doc.ref.path, doc.id);
+      }
+
+      bulkWriter.onWriteResult((ref) => {
+        successCount++;
+        processedCount++;
+
+        const docId = docIdMap.get(ref.path) || ref.id;
+        deletedIds.push(docId);
+        logCollector?.addEntry(docId, "success");
+
+        if (options.onProgress) {
+          const progress = calculateProgress(processedCount, totalCount);
+          options.onProgress(progress);
+        }
+      });
+
+      bulkWriter.onWriteError((error) => {
+        failureCount++;
+        processedCount++;
+
+        const docId = error.documentRef?.id || "unknown";
+        failedDocIds.push(docId);
+        logCollector?.addEntry(docId, "failure", error.message);
+
+        if (options.onProgress) {
+          const progress = calculateProgress(processedCount, totalCount);
+          options.onProgress(progress);
+        }
+
+        return false;
+      });
+
+      for (const doc of snapshot.docs) {
+        bulkWriter.delete(doc.ref);
+      }
+
+      await bulkWriter.close();
+    }
+
+    const result: DeleteResult & { logFilePath?: string } = {
+      successCount,
+      failureCount,
+      totalCount,
+      deletedIds,
+      failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
+    };
+
+    // Write log file if enabled
+    if (logCollector && options.log) {
+      result.logFilePath = logCollector.finalize(options.log);
+    }
+
+    return result;
+  }
+
+  /**
    * Validate that collection is set
    * @private
    */
@@ -647,6 +871,14 @@ export class BatchUpdater {
 
     for (const condition of this.conditions) {
       query = query.where(condition.field, condition.operator, condition.value);
+    }
+
+    for (const orderBy of this.orderByConditions) {
+      query = query.orderBy(orderBy.field, orderBy.direction);
+    }
+
+    if (this.limitCount !== undefined && this.limitCount > 0) {
+      query = query.limit(this.limitCount);
     }
 
     return query;

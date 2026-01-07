@@ -12,7 +12,9 @@
 - 500개 제한 없음 - Firebase Admin SDK의 BulkWriter 활용
 - 변경 사항 미리보기 - 업데이트 전 Before/After 비교
 - 진행 상황 추적 - 실시간 진행률 콜백
-- 일괄 생성/Upsert - 여러 문서를 한 번에 생성 또는 upsert
+- 일괄 생성/Upsert/삭제 - 여러 문서를 한 번에 생성, upsert 또는 삭제
+- 정렬 및 제한 - `orderBy()`와 `limit()`으로 정밀한 제어
+- FieldValue 지원 - `increment()`, `arrayUnion()`, `serverTimestamp()` 등 사용 가능
 - 로그 파일 생성 - 감사를 위한 상세 작업 로그 (선택사항)
 
 ## 설치
@@ -75,11 +77,14 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 |--------|------|--------|
 | `collection(path)` | 작업할 컬렉션 선택 | `this` |
 | `where(field, op, value)` | 필터 조건 추가 (체이닝 가능) | `this` |
+| `orderBy(field, direction?)` | 정렬 추가 (체이닝 가능) | `this` |
+| `limit(count)` | 문서 수 제한 (체이닝 가능) | `this` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
 | `upsert(data, options?)` | 업데이트 또는 생성 (set with merge) | `UpsertResult` |
-| `getFields(field)` | 특정 필드 값 조회 | `FieldValue[]` |
+| `delete(options?)` | 매칭되는 문서 삭제 | `DeleteResult` |
+| `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
 
@@ -89,7 +94,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 {
   onProgress?: (progress: ProgressInfo) => void;
   log?: LogOptions;
-  batchSize?: number;  // update/upsert 전용
+  batchSize?: number;  // update/upsert/delete 전용
 }
 
 // ProgressInfo
@@ -119,7 +124,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `UpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
-| `FieldValue` | `id`, `value` |
+| `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
 
@@ -156,6 +162,20 @@ const result = await updater
   .collection("users")
   .where("status", "==", "active")
   .upsert({ tier: "premium", updatedAt: new Date() });
+```
+
+### 문서 삭제
+
+```typescript
+// 조건에 맞는 문서 삭제
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .where("lastLoginAt", "<", ninetyDaysAgo)
+  .delete();
+
+console.log(`${result.successCount}개 문서 삭제됨`);
+console.log("삭제된 ID:", result.deletedIds);
 ```
 
 ### 업데이트 전 미리보기
@@ -217,7 +237,57 @@ const result = await updater
   .update({ status: "archived" });
 ```
 
-> **참고:** 서로 다른 필드에 여러 `where()` 조건을 사용할 경우, Firestore에서 [복합 인덱스](https://firebase.google.com/docs/firestore/query-data/indexing)가 필요할 수 있습니다. `FAILED_PRECONDITION` 오류가 발생하면 오류 메시지의 링크를 통해 필요한 인덱스를 생성하세요.
+### 정렬 및 제한
+
+```typescript
+// 상위 10명 점수 높은 사용자만 업데이트
+const result = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .orderBy("score", "desc")
+  .limit(10)
+  .update({ tier: "premium" });
+
+// 가장 오래된 비활성 사용자 100명 삭제
+const deleteResult = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .orderBy("lastLoginAt", "asc")
+  .limit(100)
+  .delete();
+```
+
+### FieldValue 사용
+
+```typescript
+import { BatchUpdater, FieldValue } from "firestore-batch-updater";
+
+// 숫자 증가
+await updater
+  .collection("products")
+  .where("id", "==", "product-1")
+  .update({ viewCount: FieldValue.increment(1) });
+
+// 배열에 항목 추가
+await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .update({ tags: FieldValue.arrayUnion("premium", "verified") });
+
+// 배열에서 항목 제거
+await updater
+  .collection("users")
+  .where("id", "==", "user-1")
+  .update({ tags: FieldValue.arrayRemove("inactive") });
+
+// 서버 타임스탬프
+await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .update({ updatedAt: FieldValue.serverTimestamp() });
+```
+
+> **참고:** 서로 다른 필드에 여러 `where()` 조건을 사용하거나, `where()`와 `orderBy()`를 다른 필드에 사용할 경우, Firestore에서 [복합 인덱스](https://firebase.google.com/docs/firestore/query-data/indexing)가 필요할 수 있습니다. `FAILED_PRECONDITION` 오류가 발생하면 오류 메시지의 링크를 통해 필요한 인덱스를 생성하세요.
 
 ### 에러 처리
 

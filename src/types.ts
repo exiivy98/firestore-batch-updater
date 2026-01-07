@@ -72,9 +72,17 @@ export interface WhereCondition {
 }
 
 /**
- * Field value result
+ * OrderBy clause condition
  */
-export interface FieldValue {
+export interface OrderByCondition {
+  field: string; // Field path
+  direction: "asc" | "desc"; // Sort direction
+}
+
+/**
+ * Field value result from getFields()
+ */
+export interface FieldValueResult {
   id: string; // Document ID
   value: any; // Field value
 }
@@ -145,6 +153,38 @@ export interface UpsertResult {
 }
 
 /**
+ * Options for delete operations
+ */
+export interface DeleteOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+  /**
+   * Batch size for pagination (optional)
+   * When set, documents are processed in batches to prevent memory issues with large collections
+   * When not set, all documents are loaded at once
+   */
+  batchSize?: number;
+}
+
+/**
+ * Result of batch delete operation
+ */
+export interface DeleteResult {
+  successCount: number; // Number of successfully deleted documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of processed documents
+  deletedIds: string[]; // Array of deleted document IDs
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
  * Log options for batch operations
  */
 export interface LogOptions {
@@ -167,7 +207,7 @@ export interface LogEntry {
  * Complete log data for an operation
  */
 export interface OperationLog {
-  operation: "update" | "create" | "upsert";
+  operation: "update" | "create" | "upsert" | "delete";
   collection: string;
   startedAt: string;
   completedAt: string;

@@ -12,7 +12,9 @@ English | [한국어](./README.ko.md)
 - No 500 document limit - Uses Firebase Admin SDK's BulkWriter
 - Preview changes - See before/after comparison before updating
 - Progress tracking - Real-time progress callbacks
-- Batch create/upsert - Create or upsert multiple documents at once
+- Batch create/upsert/delete - Create, upsert, or delete multiple documents at once
+- Sorting and limiting - Use `orderBy()` and `limit()` for precise control
+- FieldValue support - Use `increment()`, `arrayUnion()`, `serverTimestamp()`, etc.
 - Log file generation - Optional detailed operation logs for auditing
 
 ## Installation
@@ -75,11 +77,14 @@ console.log(`Updated ${result.successCount} documents`);
 |--------|-------------|---------|
 | `collection(path)` | Select collection to operate on | `this` |
 | `where(field, op, value)` | Add filter condition (chainable) | `this` |
+| `orderBy(field, direction?)` | Add sorting (chainable) | `this` |
+| `limit(count)` | Limit number of documents (chainable) | `this` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
 | `upsert(data, options?)` | Update or create (set with merge) | `UpsertResult` |
-| `getFields(field)` | Get specific field values | `FieldValue[]` |
+| `delete(options?)` | Delete matching documents | `DeleteResult` |
+| `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
 
@@ -89,7 +94,7 @@ All write operations support an optional `options` parameter:
 {
   onProgress?: (progress: ProgressInfo) => void;
   log?: LogOptions;
-  batchSize?: number;  // For update/upsert only
+  batchSize?: number;  // For update/upsert/delete
 }
 
 // ProgressInfo
@@ -119,7 +124,8 @@ All write operations support an optional `options` parameter:
 | `UpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
-| `FieldValue` | `id`, `value` |
+| `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
 
@@ -156,6 +162,18 @@ const result = await updater
   .collection("users")
   .where("status", "==", "active")
   .upsert({ tier: "premium", updatedAt: new Date() });
+```
+
+### Delete Documents
+
+```typescript
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .delete();
+
+console.log(`Deleted ${result.successCount} documents`);
+console.log("Deleted IDs:", result.deletedIds);
 ```
 
 ### Preview Before Update
@@ -217,7 +235,56 @@ const result = await updater
   .update({ status: "archived" });
 ```
 
-> **Note:** When using multiple `where()` conditions on different fields, Firestore may require a [composite index](https://firebase.google.com/docs/firestore/query-data/indexing). If you see a `FAILED_PRECONDITION` error, follow the link in the error message to create the required index.
+> **Note:** When using multiple `where()` conditions on different fields, or combining `where()` with `orderBy()` on different fields, Firestore may require a [composite index](https://firebase.google.com/docs/firestore/query-data/indexing). If you see a `FAILED_PRECONDITION` error, follow the link in the error message to create the required index.
+
+### Sorting and Limiting
+
+```typescript
+// Get top 10 users by score
+const result = await updater
+  .collection("users")
+  .orderBy("score", "desc")
+  .limit(10)
+  .update({ featured: true });
+
+// Delete oldest 100 inactive users
+const deleted = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .orderBy("createdAt", "asc")
+  .limit(100)
+  .delete();
+```
+
+### Using FieldValue
+
+```typescript
+import { BatchUpdater, FieldValue } from "firestore-batch-updater";
+
+// Increment a counter
+await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .update({ loginCount: FieldValue.increment(1) });
+
+// Add to array
+await updater
+  .collection("users")
+  .where("tier", "==", "premium")
+  .update({ tags: FieldValue.arrayUnion("vip", "priority") });
+
+// Remove from array
+await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .update({ tags: FieldValue.arrayRemove("active") });
+
+// Server timestamp
+await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .update({ lastSeen: FieldValue.serverTimestamp() });
+```
 
 ### Error Handling
 

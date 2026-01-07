@@ -8,6 +8,10 @@
 // Export main class
 export { BatchUpdater } from "./core/batch-updater";
 
+// Re-export FieldValue from firebase-admin for convenience
+// Users can use FieldValue.increment(), FieldValue.arrayUnion(), etc.
+export { FieldValue } from "firebase-admin/firestore";
+
 // Export types
 export type {
   ProgressInfo,
@@ -16,12 +20,15 @@ export type {
   DocumentSnapshot,
   PreviewResult,
   WhereCondition,
-  FieldValue,
+  OrderByCondition,
+  FieldValueResult,
   CreateDocumentInput,
   CreateOptions,
   CreateResult,
   UpsertOptions,
   UpsertResult,
+  DeleteOptions,
+  DeleteResult,
   LogOptions,
   LogEntry,
   OperationLog,

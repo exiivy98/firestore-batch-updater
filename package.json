@@ -1,6 +1,6 @@
 {
   "name": "firestore-batch-updater",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Batch update Firestore documents with query-based filtering and preview",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

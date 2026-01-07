@@ -131,7 +131,7 @@ export function writeOperationLog(
  * Create a log collector for tracking operation entries
  */
 export function createLogCollector(
-  operation: "update" | "create" | "upsert",
+  operation: "update" | "create" | "upsert" | "delete",
   collection: string,
   conditions?: WhereCondition[],
   updateData?: Record<string, any>

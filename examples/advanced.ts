@@ -8,11 +8,14 @@
  * - Custom progress tracking
  * - Pagination for large collections
  * - Log file generation
+ * - Sorting and limiting with orderBy() and limit()
+ * - Using FieldValue (increment, arrayUnion, etc.)
+ * - Deleting documents
  */
 
 import { getFirestore } from "firebase-admin/firestore";
 // @ts-ignore - This example shows usage after package installation
-import { BatchUpdater } from "firestore-batch-updater";
+import { BatchUpdater, FieldValue } from "firestore-batch-updater";
 
 const firestore = getFirestore();
 
@@ -265,10 +268,158 @@ async function logFileExample() {
   }
 }
 
+async function sortingAndLimitingExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 11: Sorting and Limiting ===");
+
+  // Get top 10 users by score
+  const topUsers = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .orderBy("score", "desc")
+    .limit(10)
+    .getFields("name");
+
+  console.log("Top 10 users by score:");
+  topUsers.forEach((user, index) => {
+    console.log(`  ${index + 1}. ${user.value}`);
+  });
+
+  // Update only top 5 users
+  const updateResult = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .orderBy("score", "desc")
+    .limit(5)
+    .update({ tier: "platinum", featuredAt: new Date() });
+
+  console.log(`Updated ${updateResult.successCount} top users to platinum tier`);
+
+  // Delete oldest 100 inactive users
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const deleteResult = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .orderBy("lastLoginAt", "asc")
+    .limit(100)
+    .delete();
+
+  console.log(`Deleted ${deleteResult.successCount} oldest inactive users`);
+}
+
+async function fieldValueExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 12: Using FieldValue ===");
+
+  // Increment a counter
+  const incrementResult = await updater
+    .collection("products")
+    .where("id", "==", "product-1")
+    .update({ viewCount: FieldValue.increment(1) });
+
+  console.log(`Incremented view count for ${incrementResult.successCount} products`);
+
+  // Add items to array
+  const arrayUnionResult = await updater
+    .collection("users")
+    .where("tier", "==", "premium")
+    .update({ tags: FieldValue.arrayUnion("vip", "priority-support") });
+
+  console.log(`Added tags to ${arrayUnionResult.successCount} premium users`);
+
+  // Remove items from array
+  const arrayRemoveResult = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .update({ tags: FieldValue.arrayRemove("active", "verified") });
+
+  console.log(`Removed tags from ${arrayRemoveResult.successCount} inactive users`);
+
+  // Server timestamp
+  const timestampResult = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .update({ lastSeen: FieldValue.serverTimestamp() });
+
+  console.log(`Updated lastSeen for ${timestampResult.successCount} active users`);
+
+  // Combine multiple FieldValue operations
+  const combinedResult = await updater
+    .collection("posts")
+    .where("status", "==", "published")
+    .update({
+      viewCount: FieldValue.increment(1),
+      tags: FieldValue.arrayUnion("trending"),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  console.log(`Applied multiple updates to ${combinedResult.successCount} posts`);
+}
+
+async function deleteExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 13: Delete Documents ===");
+
+  // Delete with where condition
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const deleteResult = await updater
+    .collection("sessions")
+    .where("createdAt", "<", ninetyDaysAgo)
+    .delete({
+      onProgress: (progress) => {
+        console.log(`Deleting old sessions: ${progress.percentage}%`);
+      },
+    });
+
+  console.log(`Deleted ${deleteResult.successCount} old sessions`);
+  console.log("Deleted IDs:", deleteResult.deletedIds.slice(0, 5), "...");
+
+  // Delete with pagination for large collections
+  const paginatedDeleteResult = await updater
+    .collection("logs")
+    .where("level", "==", "debug")
+    .where("createdAt", "<", ninetyDaysAgo)
+    .delete({
+      batchSize: 500,
+      onProgress: (progress) => {
+        console.log(`Cleaning up debug logs: ${progress.percentage}%`);
+      },
+    });
+
+  console.log(`Deleted ${paginatedDeleteResult.successCount} debug log entries`);
+
+  // Delete with log file for auditing
+  const auditDeleteResult = await updater
+    .collection("temp_data")
+    .where("expiresAt", "<", new Date())
+    .delete({
+      log: {
+        enabled: true,
+        path: "./logs/cleanup",
+        filename: "temp-data-cleanup.log",
+      },
+    });
+
+  console.log(`Deleted ${auditDeleteResult.successCount} expired temp records`);
+  if (auditDeleteResult.logFilePath) {
+    console.log(`Deletion log saved to: ${auditDeleteResult.logFilePath}`);
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
   createAndUpsertExample(),
   errorHandlingExample(),
   logFileExample(),
+  sortingAndLimitingExample(),
+  fieldValueExample(),
+  deleteExample(),
 ]).catch(console.error);
