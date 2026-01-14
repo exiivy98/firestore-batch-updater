@@ -29,6 +29,8 @@ export type {
   UpsertResult,
   DeleteOptions,
   DeleteResult,
+  CountResult,
+  DryRunResult,
   LogOptions,
   LogEntry,
   OperationLog,

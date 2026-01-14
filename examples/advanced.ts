@@ -9,8 +9,12 @@
  * - Pagination for large collections
  * - Log file generation
  * - Sorting and limiting with orderBy() and limit()
- * - Using FieldValue (increment, arrayUnion, etc.)
+ * - Using FieldValue (increment, arrayUnion, delete, etc.)
  * - Deleting documents
+ * - Counting documents with count()
+ * - Dry run mode for simulating operations
+ * - Subcollection queries
+ * - Collection group queries
  */
 
 import { getFirestore } from "firebase-admin/firestore";
@@ -413,6 +417,186 @@ async function deleteExample() {
   }
 }
 
+async function countExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 14: Count Documents ===");
+
+  // Count all users
+  const allUsers = await updater.collection("users").count();
+  console.log(`Total users: ${allUsers.count}`);
+
+  // Count with conditions
+  const inactiveUsers = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .count();
+  console.log(`Inactive users: ${inactiveUsers.count}`);
+
+  // Count with multiple conditions
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const oldInactiveUsers = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .where("lastLoginAt", "<", ninetyDaysAgo)
+    .count();
+  console.log(`Old inactive users (90+ days): ${oldInactiveUsers.count}`);
+}
+
+async function dryRunExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 15: Dry Run Mode ===");
+
+  // Simulate an update without making changes
+  const updateSimulation = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .update({ status: "archived" }, { dryRun: true });
+
+  if ("wouldAffect" in updateSimulation) {
+    console.log(`Update would affect ${updateSimulation.wouldAffect} documents`);
+    console.log("Sample IDs:", updateSimulation.sampleIds.slice(0, 3));
+  }
+
+  // Simulate a delete
+  const deleteSimulation = await updater
+    .collection("logs")
+    .where("level", "==", "debug")
+    .delete({ dryRun: true });
+
+  if ("wouldAffect" in deleteSimulation) {
+    console.log(`Delete would affect ${deleteSimulation.wouldAffect} documents`);
+  }
+
+  // Simulate an upsert
+  const upsertSimulation = await updater
+    .collection("users")
+    .where("tier", "==", "free")
+    .upsert({ promotionSent: true }, { dryRun: true });
+
+  if ("wouldAffect" in upsertSimulation) {
+    console.log(`Upsert would affect ${upsertSimulation.wouldAffect} documents`);
+  }
+}
+
+async function subcollectionExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 16: Subcollection Queries ===");
+
+  const userId = "user-123";
+
+  // Query a specific user's orders
+  const pendingOrders = await updater
+    .collection(`users/${userId}/orders`)
+    .where("status", "==", "pending")
+    .count();
+
+  console.log(`User ${userId} has ${pendingOrders.count} pending orders`);
+
+  // Update orders in a subcollection
+  const updateResult = await updater
+    .collection(`users/${userId}/orders`)
+    .where("status", "==", "pending")
+    .where("createdAt", "<", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // 7 days ago
+    .update({ status: "expired" });
+
+  if ("successCount" in updateResult) {
+    console.log(`Expired ${updateResult.successCount} old pending orders`);
+  }
+
+  // Delete notifications in a subcollection
+  const deleteResult = await updater
+    .collection(`users/${userId}/notifications`)
+    .where("read", "==", true)
+    .delete();
+
+  if ("successCount" in deleteResult) {
+    console.log(`Deleted ${deleteResult.successCount} read notifications`);
+  }
+}
+
+async function collectionGroupExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 17: Collection Group Queries ===");
+
+  // Count all orders across all users
+  const totalOrders = await updater.collectionGroup("orders").count();
+  console.log(`Total orders across all users: ${totalOrders.count}`);
+
+  // Count pending orders across all users
+  const pendingOrders = await updater
+    .collectionGroup("orders")
+    .where("status", "==", "pending")
+    .count();
+
+  console.log(`Pending orders across all users: ${pendingOrders.count}`);
+
+  // Update all expired orders across all users (with dry run first)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const simulation = await updater
+    .collectionGroup("orders")
+    .where("status", "==", "pending")
+    .where("createdAt", "<", thirtyDaysAgo)
+    .update({ status: "expired" }, { dryRun: true });
+
+  if ("wouldAffect" in simulation) {
+    console.log(`Would expire ${simulation.wouldAffect} old orders`);
+
+    // Actually perform the update if count is reasonable
+    if (simulation.wouldAffect > 0 && simulation.wouldAffect < 1000) {
+      const result = await updater
+        .collectionGroup("orders")
+        .where("status", "==", "pending")
+        .where("createdAt", "<", thirtyDaysAgo)
+        .update({ status: "expired" });
+
+      if ("successCount" in result) {
+        console.log(`Actually expired ${result.successCount} orders`);
+      }
+    }
+  }
+}
+
+async function fieldValueDeleteExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 18: FieldValue.delete() ===");
+
+  // Remove a specific field from documents
+  const result = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .update({
+      temporaryToken: FieldValue.delete(),
+      sessionData: FieldValue.delete(),
+    });
+
+  if ("successCount" in result) {
+    console.log(`Removed sensitive fields from ${result.successCount} inactive users`);
+  }
+
+  // Combine delete with other FieldValue operations
+  const combinedResult = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .update({
+      lastCleanup: FieldValue.serverTimestamp(),
+      tempCache: FieldValue.delete(),
+      loginCount: FieldValue.increment(0), // Reset without changing
+    });
+
+  if ("successCount" in combinedResult) {
+    console.log(`Cleaned up ${combinedResult.successCount} active user records`);
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -422,4 +606,9 @@ Promise.all([
   sortingAndLimitingExample(),
   fieldValueExample(),
   deleteExample(),
+  countExample(),
+  dryRunExample(),
+  subcollectionExample(),
+  collectionGroupExample(),
+  fieldValueDeleteExample(),
 ]).catch(console.error);

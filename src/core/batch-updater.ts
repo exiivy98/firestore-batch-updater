@@ -25,6 +25,8 @@ import type {
   UpsertResult,
   DeleteOptions,
   DeleteResult,
+  CountResult,
+  DryRunResult,
 } from "../types";
 
 import {
@@ -41,6 +43,7 @@ import {
 export class BatchUpdater {
   private firestore: Firestore;
   private collectionPath?: string;
+  private isCollectionGroup: boolean = false;
   private conditions: WhereCondition[] = [];
   private orderByConditions: OrderByCondition[] = [];
   private limitCount?: number;
@@ -55,11 +58,27 @@ export class BatchUpdater {
 
   /**
    * Select a collection to operate on
+   * Supports subcollection paths like "users/userId/orders"
    * @param path - Collection path
    * @returns This instance for chaining
    */
   collection(path: string): this {
     this.collectionPath = path;
+    this.isCollectionGroup = false;
+    this.conditions = [];
+    this.orderByConditions = [];
+    this.limitCount = undefined;
+    return this;
+  }
+
+  /**
+   * Select a collection group to operate on (queries across all subcollections with the same name)
+   * @param collectionId - Collection ID (not a path, just the collection name)
+   * @returns This instance for chaining
+   */
+  collectionGroup(collectionId: string): this {
+    this.collectionPath = collectionId;
+    this.isCollectionGroup = true;
     this.conditions = [];
     this.orderByConditions = [];
     this.limitCount = undefined;
@@ -97,6 +116,21 @@ export class BatchUpdater {
   limit(count: number): this {
     this.limitCount = count;
     return this;
+  }
+
+  /**
+   * Count documents matching the query conditions
+   * @returns Count result with number of matching documents
+   */
+  async count(): Promise<CountResult> {
+    this.validateSetup();
+
+    const query = this.buildQuery();
+    const snapshot = await query.count().get();
+
+    return {
+      count: snapshot.data().count,
+    };
   }
 
   /**
@@ -142,17 +176,30 @@ export class BatchUpdater {
   /**
    * Execute batch update operation
    * @param updateData - Data to update
-   * @param options - Update options (e.g., progress callback, log options, batchSize for pagination)
-   * @returns Update result with success/failure counts and optional log file path
+   * @param options - Update options (e.g., progress callback, log options, batchSize for pagination, dryRun)
+   * @returns Update result with success/failure counts and optional log file path, or DryRunResult if dryRun is true
    */
   async update(
     updateData: Record<string, any>,
     options: UpdateOptions = {}
-  ): Promise<UpdateResult & { logFilePath?: string }> {
+  ): Promise<(UpdateResult & { logFilePath?: string }) | DryRunResult> {
     this.validateSetup();
 
     if (!isValidUpdateData(updateData)) {
       throw new Error("Update data must be a non-empty object");
+    }
+
+    // Handle dry run mode
+    if (options.dryRun) {
+      const query = this.buildQuery();
+      const snapshot = await query.limit(10).get();
+      const countSnapshot = await this.buildQuery().count().get();
+
+      return {
+        wouldAffect: countSnapshot.data().count,
+        sampleIds: snapshot.docs.map((doc) => doc.id),
+        operation: "update",
+      } as DryRunResult;
     }
 
     // Initialize log collector if logging is enabled
@@ -370,6 +417,7 @@ export class BatchUpdater {
 
   /**
    * Create multiple documents in batch
+   * Note: This method does not work with collectionGroup()
    * @param documents - Array of documents to create
    * @param options - Create options (e.g., progress callback, log options)
    * @returns Create result with success/failure counts, created IDs, and optional log file path
@@ -379,6 +427,10 @@ export class BatchUpdater {
     options: CreateOptions = {}
   ): Promise<CreateResult & { logFilePath?: string }> {
     this.validateSetup();
+
+    if (this.isCollectionGroup) {
+      throw new Error("create() cannot be used with collectionGroup(). Use collection() with a specific path instead.");
+    }
 
     if (!Array.isArray(documents) || documents.length === 0) {
       throw new Error("Documents array must be non-empty");
@@ -461,17 +513,30 @@ export class BatchUpdater {
    * Upsert documents matching query conditions
    * Updates existing documents or creates them if they don't exist
    * @param updateData - Data to set/merge
-   * @param options - Upsert options (e.g., progress callback, log options, batchSize for pagination)
-   * @returns Upsert result with success/failure counts and optional log file path
+   * @param options - Upsert options (e.g., progress callback, log options, batchSize for pagination, dryRun)
+   * @returns Upsert result with success/failure counts and optional log file path, or DryRunResult if dryRun is true
    */
   async upsert(
     updateData: Record<string, any>,
     options: UpsertOptions = {}
-  ): Promise<UpsertResult & { logFilePath?: string }> {
+  ): Promise<(UpsertResult & { logFilePath?: string }) | DryRunResult> {
     this.validateSetup();
 
     if (!isValidUpdateData(updateData)) {
       throw new Error("Update data must be a non-empty object");
+    }
+
+    // Handle dry run mode
+    if (options.dryRun) {
+      const query = this.buildQuery();
+      const snapshot = await query.limit(10).get();
+      const countSnapshot = await this.buildQuery().count().get();
+
+      return {
+        wouldAffect: countSnapshot.data().count,
+        sampleIds: snapshot.docs.map((doc) => doc.id),
+        operation: "upsert",
+      } as DryRunResult;
     }
 
     // Initialize log collector if logging is enabled
@@ -656,13 +721,26 @@ export class BatchUpdater {
 
   /**
    * Delete documents matching query conditions
-   * @param options - Delete options (e.g., progress callback, log options, batchSize for pagination)
-   * @returns Delete result with success/failure counts, deleted IDs, and optional log file path
+   * @param options - Delete options (e.g., progress callback, log options, batchSize for pagination, dryRun)
+   * @returns Delete result with success/failure counts, deleted IDs, and optional log file path, or DryRunResult if dryRun is true
    */
   async delete(
     options: DeleteOptions = {}
-  ): Promise<DeleteResult & { logFilePath?: string }> {
+  ): Promise<(DeleteResult & { logFilePath?: string }) | DryRunResult> {
     this.validateSetup();
+
+    // Handle dry run mode
+    if (options.dryRun) {
+      const query = this.buildQuery();
+      const snapshot = await query.limit(10).get();
+      const countSnapshot = await this.buildQuery().count().get();
+
+      return {
+        wouldAffect: countSnapshot.data().count,
+        sampleIds: snapshot.docs.map((doc) => doc.id),
+        operation: "delete",
+      } as DryRunResult;
+    }
 
     // Initialize log collector if logging is enabled
     const logCollector = options.log?.enabled
@@ -865,9 +943,9 @@ export class BatchUpdater {
    * @private
    */
   private buildQuery(): Query<DocumentData> {
-    let query: Query<DocumentData> = this.firestore.collection(
-      this.collectionPath!
-    );
+    let query: Query<DocumentData> = this.isCollectionGroup
+      ? this.firestore.collectionGroup(this.collectionPath!)
+      : this.firestore.collection(this.collectionPath!);
 
     for (const condition of this.conditions) {
       query = query.where(condition.field, condition.operator, condition.value);

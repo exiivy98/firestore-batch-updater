@@ -32,6 +32,11 @@ export interface UpdateOptions {
    * When not set, all documents are loaded at once
    */
   batchSize?: number;
+  /**
+   * Dry run mode - simulate the operation without actually writing
+   * Returns what would happen without making any changes
+   */
+  dryRun?: boolean;
 }
 
 /**
@@ -140,6 +145,11 @@ export interface UpsertOptions {
    * When not set, all documents are loaded at once
    */
   batchSize?: number;
+  /**
+   * Dry run mode - simulate the operation without actually writing
+   * Returns what would happen without making any changes
+   */
+  dryRun?: boolean;
 }
 
 /**
@@ -171,6 +181,11 @@ export interface DeleteOptions {
    * When not set, all documents are loaded at once
    */
   batchSize?: number;
+  /**
+   * Dry run mode - simulate the operation without actually writing
+   * Returns what would happen without making any changes
+   */
+  dryRun?: boolean;
 }
 
 /**
@@ -182,6 +197,22 @@ export interface DeleteResult {
   totalCount: number; // Total number of processed documents
   deletedIds: string[]; // Array of deleted document IDs
   failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
+ * Result of count operation
+ */
+export interface CountResult {
+  count: number; // Number of documents matching the query
+}
+
+/**
+ * Result of dry run operation
+ */
+export interface DryRunResult {
+  wouldAffect: number; // Number of documents that would be affected
+  sampleIds: string[]; // Sample of document IDs that would be affected (up to 10)
+  operation: "update" | "upsert" | "delete"; // Type of operation
 }
 
 /**

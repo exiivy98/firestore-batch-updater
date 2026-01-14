@@ -14,7 +14,10 @@ English | [한국어](./README.ko.md)
 - Progress tracking - Real-time progress callbacks
 - Batch create/upsert/delete - Create, upsert, or delete multiple documents at once
 - Sorting and limiting - Use `orderBy()` and `limit()` for precise control
-- FieldValue support - Use `increment()`, `arrayUnion()`, `serverTimestamp()`, etc.
+- FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
+- Subcollection & Collection Group - Query subcollections or all collections with the same name
+- Dry run mode - Simulate operations without making changes
+- Count documents - Quickly count matching documents without loading them
 - Log file generation - Optional detailed operation logs for auditing
 
 ## Installation
@@ -75,10 +78,12 @@ console.log(`Updated ${result.successCount} documents`);
 
 | Method | Description | Returns |
 |--------|-------------|---------|
-| `collection(path)` | Select collection to operate on | `this` |
+| `collection(path)` | Select collection to operate on (supports subcollection paths) | `this` |
+| `collectionGroup(id)` | Query all collections with the same ID | `this` |
 | `where(field, op, value)` | Add filter condition (chainable) | `this` |
 | `orderBy(field, direction?)` | Add sorting (chainable) | `this` |
 | `limit(count)` | Limit number of documents (chainable) | `this` |
+| `count()` | Count matching documents | `CountResult` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
@@ -95,6 +100,7 @@ All write operations support an optional `options` parameter:
   onProgress?: (progress: ProgressInfo) => void;
   log?: LogOptions;
   batchSize?: number;  // For update/upsert/delete
+  dryRun?: boolean;    // For update/upsert/delete - simulate without writing
 }
 
 // ProgressInfo
@@ -116,10 +122,15 @@ All write operations support an optional `options` parameter:
 - When not set: All documents are loaded into memory at once (suitable for small collections)
 - When set (e.g., `batchSize: 1000`): Documents are processed in batches using cursor pagination (suitable for large collections to prevent memory issues)
 
+**dryRun option:**
+- When `true`: Returns `DryRunResult` with `wouldAffect` count and `sampleIds` without making any changes
+
 ### Return Types
 
 | Type | Fields |
 |------|--------|
+| `CountResult` | `count` |
+| `DryRunResult` | `wouldAffect`, `sampleIds[]`, `operation` |
 | `PreviewResult` | `affectedCount`, `samples[]`, `affectedFields[]` |
 | `UpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
@@ -284,6 +295,80 @@ await updater
   .collection("users")
   .where("status", "==", "active")
   .update({ lastSeen: FieldValue.serverTimestamp() });
+
+// Delete a field
+await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .update({ temporaryData: FieldValue.delete() });
+```
+
+### Count Documents
+
+```typescript
+// Quickly count matching documents without loading them
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .count();
+
+console.log(`Found ${result.count} inactive users`);
+```
+
+### Dry Run Mode
+
+```typescript
+// Simulate an operation without making any changes
+const simulation = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .update(
+    { status: "archived" },
+    { dryRun: true }
+  );
+
+console.log(`Would affect ${simulation.wouldAffect} documents`);
+console.log("Sample IDs:", simulation.sampleIds);
+
+// Also works with delete
+const deleteSimulation = await updater
+  .collection("logs")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .delete({ dryRun: true });
+
+console.log(`Would delete ${deleteSimulation.wouldAffect} documents`);
+```
+
+### Subcollections
+
+```typescript
+// Query a specific subcollection path
+const result = await updater
+  .collection("users/user-123/orders")
+  .where("status", "==", "pending")
+  .update({ status: "cancelled" });
+
+// Or use dynamic paths
+const userId = "user-123";
+await updater
+  .collection(`users/${userId}/notifications`)
+  .where("read", "==", false)
+  .delete();
+```
+
+### Collection Group Queries
+
+```typescript
+// Query ALL "orders" subcollections across all users
+const result = await updater
+  .collectionGroup("orders")
+  .where("status", "==", "pending")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .update({ status: "expired" });
+
+console.log(`Updated ${result.successCount} orders across all users`);
+
+// Note: collectionGroup requires a Firestore index on the queried fields
 ```
 
 ### Error Handling

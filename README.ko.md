@@ -14,7 +14,10 @@
 - 진행 상황 추적 - 실시간 진행률 콜백
 - 일괄 생성/Upsert/삭제 - 여러 문서를 한 번에 생성, upsert 또는 삭제
 - 정렬 및 제한 - `orderBy()`와 `limit()`으로 정밀한 제어
-- FieldValue 지원 - `increment()`, `arrayUnion()`, `serverTimestamp()` 등 사용 가능
+- FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
+- 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
+- Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
+- 문서 개수 조회 - 문서를 로드하지 않고 빠르게 개수 확인
 - 로그 파일 생성 - 감사를 위한 상세 작업 로그 (선택사항)
 
 ## 설치
@@ -75,10 +78,12 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 
 | 메서드 | 설명 | 반환값 |
 |--------|------|--------|
-| `collection(path)` | 작업할 컬렉션 선택 | `this` |
+| `collection(path)` | 작업할 컬렉션 선택 (서브컬렉션 경로 지원) | `this` |
+| `collectionGroup(id)` | 동일 ID의 모든 컬렉션 쿼리 | `this` |
 | `where(field, op, value)` | 필터 조건 추가 (체이닝 가능) | `this` |
 | `orderBy(field, direction?)` | 정렬 추가 (체이닝 가능) | `this` |
 | `limit(count)` | 문서 수 제한 (체이닝 가능) | `this` |
+| `count()` | 매칭되는 문서 개수 조회 | `CountResult` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
@@ -95,6 +100,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
   onProgress?: (progress: ProgressInfo) => void;
   log?: LogOptions;
   batchSize?: number;  // update/upsert/delete 전용
+  dryRun?: boolean;    // update/upsert/delete 전용 - 실제 쓰기 없이 시뮬레이션
 }
 
 // ProgressInfo
@@ -116,10 +122,15 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 - 미설정: 모든 문서를 메모리에 한 번에 로드 (소규모 컬렉션에 적합)
 - 설정 시 (예: `batchSize: 1000`): 커서 페이지네이션을 사용하여 배치 단위로 처리 (대규모 컬렉션의 메모리 문제 방지)
 
+**dryRun 옵션:**
+- `true` 설정 시: 실제 변경 없이 `DryRunResult` 반환 (`wouldAffect` 개수와 `sampleIds` 포함)
+
 ### 반환 타입
 
 | 타입 | 필드 |
 |------|------|
+| `CountResult` | `count` |
+| `DryRunResult` | `wouldAffect`, `sampleIds[]`, `operation` |
 | `PreviewResult` | `affectedCount`, `samples[]`, `affectedFields[]` |
 | `UpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
@@ -285,6 +296,80 @@ await updater
   .collection("users")
   .where("status", "==", "active")
   .update({ updatedAt: FieldValue.serverTimestamp() });
+
+// 필드 삭제
+await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .update({ temporaryData: FieldValue.delete() });
+```
+
+### 문서 개수 조회
+
+```typescript
+// 문서를 로드하지 않고 빠르게 개수 조회
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .count();
+
+console.log(`${result.count}명의 비활성 사용자 발견`);
+```
+
+### Dry Run 모드
+
+```typescript
+// 실제 변경 없이 작업 시뮬레이션
+const simulation = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .update(
+    { status: "archived" },
+    { dryRun: true }
+  );
+
+console.log(`${simulation.wouldAffect}개 문서가 영향을 받을 예정`);
+console.log("샘플 ID:", simulation.sampleIds);
+
+// 삭제에도 사용 가능
+const deleteSimulation = await updater
+  .collection("logs")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .delete({ dryRun: true });
+
+console.log(`${deleteSimulation.wouldAffect}개 문서가 삭제될 예정`);
+```
+
+### 서브컬렉션
+
+```typescript
+// 특정 서브컬렉션 경로 쿼리
+const result = await updater
+  .collection("users/user-123/orders")
+  .where("status", "==", "pending")
+  .update({ status: "cancelled" });
+
+// 동적 경로 사용
+const userId = "user-123";
+await updater
+  .collection(`users/${userId}/notifications`)
+  .where("read", "==", false)
+  .delete();
+```
+
+### 컬렉션 그룹 쿼리
+
+```typescript
+// 모든 사용자의 "orders" 서브컬렉션을 한 번에 쿼리
+const result = await updater
+  .collectionGroup("orders")
+  .where("status", "==", "pending")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .update({ status: "expired" });
+
+console.log(`${result.successCount}개 주문 업데이트 완료`);
+
+// 참고: collectionGroup은 쿼리 필드에 대한 Firestore 인덱스가 필요합니다
 ```
 
 > **참고:** 서로 다른 필드에 여러 `where()` 조건을 사용하거나, `where()`와 `orderBy()`를 다른 필드에 사용할 경우, Firestore에서 [복합 인덱스](https://firebase.google.com/docs/firestore/query-data/indexing)가 필요할 수 있습니다. `FAILED_PRECONDITION` 오류가 발생하면 오류 메시지의 링크를 통해 필요한 인덱스를 생성하세요.
