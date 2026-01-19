@@ -14,6 +14,8 @@ English | [한국어](./README.ko.md)
 - Progress tracking - Real-time progress callbacks
 - Batch create/upsert/delete - Create, upsert, or delete multiple documents at once
 - Sorting and limiting - Use `orderBy()` and `limit()` for precise control
+- Field selection - Use `select()` to load only needed fields (saves memory and costs)
+- Find single document - Use `findOne()` for efficient single-document retrieval
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -83,7 +85,9 @@ console.log(`Updated ${result.successCount} documents`);
 | `where(field, op, value)` | Add filter condition (chainable) | `this` |
 | `orderBy(field, direction?)` | Add sorting (chainable) | `this` |
 | `limit(count)` | Limit number of documents (chainable) | `this` |
+| `select(...fields)` | Select specific fields to retrieve (chainable) | `this` |
 | `count()` | Count matching documents | `CountResult` |
+| `findOne()` | Find first matching document | `{ id, data } \| null` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
@@ -313,6 +317,50 @@ const result = await updater
   .count();
 
 console.log(`Found ${result.count} inactive users`);
+```
+
+### Select Specific Fields
+
+```typescript
+// Only load name and email fields (reduces memory and read costs)
+const result = await updater
+  .collection("users")
+  .select("name", "email")
+  .where("status", "==", "active")
+  .findOne();
+
+console.log(result?.data); // Only contains { name, email }
+
+// Works with all operations - documents will only have selected fields
+const emails = await updater
+  .collection("users")
+  .select("email")
+  .where("verified", "==", true)
+  .getFields("email");
+```
+
+### Find Single Document
+
+```typescript
+// Find first matching document
+const user = await updater
+  .collection("users")
+  .where("email", "==", "user@example.com")
+  .findOne();
+
+if (user) {
+  console.log("Found user:", user.id);
+  console.log("User data:", user.data);
+} else {
+  console.log("User not found");
+}
+
+// Combine with select for efficient lookup
+const profile = await updater
+  .collection("users")
+  .select("name", "avatar", "tier")
+  .where("username", "==", "johndoe")
+  .findOne();
 ```
 
 ### Dry Run Mode

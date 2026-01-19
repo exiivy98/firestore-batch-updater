@@ -47,6 +47,7 @@ export class BatchUpdater {
   private conditions: WhereCondition[] = [];
   private orderByConditions: OrderByCondition[] = [];
   private limitCount?: number;
+  private selectedFields?: string[];
 
   /**
    * Create a new BatchUpdater instance
@@ -68,6 +69,7 @@ export class BatchUpdater {
     this.conditions = [];
     this.orderByConditions = [];
     this.limitCount = undefined;
+    this.selectedFields = undefined;
     return this;
   }
 
@@ -82,6 +84,7 @@ export class BatchUpdater {
     this.conditions = [];
     this.orderByConditions = [];
     this.limitCount = undefined;
+    this.selectedFields = undefined;
     return this;
   }
 
@@ -119,6 +122,16 @@ export class BatchUpdater {
   }
 
   /**
+   * Select specific fields to retrieve (reduces memory usage and read costs)
+   * @param fields - Field paths to retrieve
+   * @returns This instance for chaining
+   */
+  select(...fields: string[]): this {
+    this.selectedFields = fields;
+    return this;
+  }
+
+  /**
    * Count documents matching the query conditions
    * @returns Count result with number of matching documents
    */
@@ -130,6 +143,27 @@ export class BatchUpdater {
 
     return {
       count: snapshot.data().count,
+    };
+  }
+
+  /**
+   * Find the first document matching the query conditions
+   * @returns First matching document with id and data, or null if not found
+   */
+  async findOne(): Promise<{ id: string; data: Record<string, any> } | null> {
+    this.validateSetup();
+
+    const query = this.buildQuery().limit(1);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return {
+      id: doc.id,
+      data: doc.data(),
     };
   }
 
@@ -957,6 +991,10 @@ export class BatchUpdater {
 
     if (this.limitCount !== undefined && this.limitCount > 0) {
       query = query.limit(this.limitCount);
+    }
+
+    if (this.selectedFields && this.selectedFields.length > 0) {
+      query = query.select(...this.selectedFields);
     }
 
     return query;

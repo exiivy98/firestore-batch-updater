@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-01-19
+
+### Added
+
+- **`select()` method** - Select specific fields to retrieve, reducing memory usage and read costs
+  - Chainable method that works with all query operations
+  - Only loads specified fields from Firestore documents
+- **`findOne()` method** - Find and return the first document matching query conditions
+  - Returns `{ id, data }` object or `null` if no document found
+  - Efficient single-document retrieval with optional `where()` and `select()` filtering
+
 ## [1.2.0] - 2025-01-14
 
 ### Added

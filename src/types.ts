@@ -11,6 +11,9 @@ export interface ProgressInfo {
   current: number; // Number of documents processed so far
   total: number; // Total number of documents to process
   percentage: number; // Progress percentage (0-100)
+  elapsedTime: number; // Elapsed time in milliseconds
+  docsPerSecond: number; // Processing speed (documents per second)
+  eta: number; // Estimated time remaining in seconds (0 if cannot be calculated)
 }
 
 /**
@@ -37,6 +40,14 @@ export interface UpdateOptions {
    * Returns what would happen without making any changes
    */
   dryRun?: boolean;
+  /**
+   * Maximum number of retry attempts for failed operations (default: 0)
+   */
+  retries?: number;
+  /**
+   * Delay between retry attempts in milliseconds (default: 1000)
+   */
+  retryDelay?: number;
 }
 
 /**
@@ -150,6 +161,14 @@ export interface UpsertOptions {
    * Returns what would happen without making any changes
    */
   dryRun?: boolean;
+  /**
+   * Maximum number of retry attempts for failed operations (default: 0)
+   */
+  retries?: number;
+  /**
+   * Delay between retry attempts in milliseconds (default: 1000)
+   */
+  retryDelay?: number;
 }
 
 /**
@@ -186,6 +205,14 @@ export interface DeleteOptions {
    * Returns what would happen without making any changes
    */
   dryRun?: boolean;
+  /**
+   * Maximum number of retry attempts for failed operations (default: 0)
+   */
+  retries?: number;
+  /**
+   * Delay between retry attempts in milliseconds (default: 1000)
+   */
+  retryDelay?: number;
 }
 
 /**
@@ -250,4 +277,12 @@ export interface OperationLog {
     failureCount: number;
   };
   entries: LogEntry[];
+}
+
+/**
+ * Result of findOne operation
+ */
+export interface FindOneResult {
+  id: string; // Document ID
+  data: Record<string, any>; // Document data
 }

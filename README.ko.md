@@ -14,6 +14,8 @@
 - 진행 상황 추적 - 실시간 진행률 콜백
 - 일괄 생성/Upsert/삭제 - 여러 문서를 한 번에 생성, upsert 또는 삭제
 - 정렬 및 제한 - `orderBy()`와 `limit()`으로 정밀한 제어
+- 필드 선택 - `select()`로 필요한 필드만 로드 (메모리 및 비용 절약)
+- 단일 문서 조회 - `findOne()`으로 효율적인 단일 문서 검색
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -83,7 +85,9 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `where(field, op, value)` | 필터 조건 추가 (체이닝 가능) | `this` |
 | `orderBy(field, direction?)` | 정렬 추가 (체이닝 가능) | `this` |
 | `limit(count)` | 문서 수 제한 (체이닝 가능) | `this` |
+| `select(...fields)` | 특정 필드만 조회 (체이닝 가능) | `this` |
 | `count()` | 매칭되는 문서 개수 조회 | `CountResult` |
+| `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
@@ -314,6 +318,50 @@ const result = await updater
   .count();
 
 console.log(`${result.count}명의 비활성 사용자 발견`);
+```
+
+### 특정 필드만 조회
+
+```typescript
+// name, email 필드만 로드 (메모리 및 읽기 비용 절약)
+const result = await updater
+  .collection("users")
+  .select("name", "email")
+  .where("status", "==", "active")
+  .findOne();
+
+console.log(result?.data); // { name, email }만 포함
+
+// 모든 작업에서 사용 가능 - 문서에 선택된 필드만 포함됨
+const emails = await updater
+  .collection("users")
+  .select("email")
+  .where("verified", "==", true)
+  .getFields("email");
+```
+
+### 단일 문서 조회
+
+```typescript
+// 첫 번째 매칭 문서 찾기
+const user = await updater
+  .collection("users")
+  .where("email", "==", "user@example.com")
+  .findOne();
+
+if (user) {
+  console.log("사용자 발견:", user.id);
+  console.log("사용자 데이터:", user.data);
+} else {
+  console.log("사용자를 찾을 수 없음");
+}
+
+// select와 함께 사용하여 효율적인 조회
+const profile = await updater
+  .collection("users")
+  .select("name", "avatar", "tier")
+  .where("username", "==", "johndoe")
+  .findOne();
 ```
 
 ### Dry Run 모드

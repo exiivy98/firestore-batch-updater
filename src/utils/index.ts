@@ -15,21 +15,33 @@ export {
 } from "./logger";
 
 /**
- * Calculate progress information
+ * Calculate progress information with timing details
  * @param current - Number of documents processed so far
  * @param total - Total number of documents to process
- * @returns Progress information with percentage
+ * @param startTime - Start time of the operation (from Date.now())
+ * @returns Progress information with percentage, timing, and ETA
  */
 export function calculateProgress(
   current: number,
-  total: number
+  total: number,
+  startTime?: number
 ): ProgressInfo {
   const percentage = total === 0 ? 0 : Math.round((current / total) * 100);
+  const now = Date.now();
+  const elapsedTime = startTime ? now - startTime : 0;
+  const docsPerSecond =
+    elapsedTime > 0 ? Math.round((current / elapsedTime) * 1000 * 100) / 100 : 0;
+  const remaining = total - current;
+  const eta =
+    docsPerSecond > 0 ? Math.round((remaining / docsPerSecond) * 100) / 100 : 0;
 
   return {
     current,
     total,
     percentage,
+    elapsedTime,
+    docsPerSecond,
+    eta,
   };
 }
 

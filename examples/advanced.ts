@@ -15,6 +15,8 @@
  * - Dry run mode for simulating operations
  * - Subcollection queries
  * - Collection group queries
+ * - Select specific fields with select()
+ * - Find single document with findOne()
  */
 
 import { getFirestore } from "firebase-admin/firestore";
@@ -597,6 +599,75 @@ async function fieldValueDeleteExample() {
   }
 }
 
+async function selectExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 19: Select Specific Fields ===");
+
+  // Only load specific fields to reduce memory and read costs
+  const user = await updater
+    .collection("users")
+    .select("name", "email")
+    .where("status", "==", "active")
+    .findOne();
+
+  if (user) {
+    console.log("User (only name and email loaded):", user.data);
+    console.log("Fields in data:", Object.keys(user.data));
+  }
+
+  // Use select with getFields for efficient data retrieval
+  const emails = await updater
+    .collection("users")
+    .select("email", "name")
+    .where("verified", "==", true)
+    .limit(10)
+    .getFields("email");
+
+  console.log(`Found ${emails.length} verified user emails`);
+}
+
+async function findOneExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 20: Find Single Document ===");
+
+  // Find a user by email
+  const user = await updater
+    .collection("users")
+    .where("email", "==", "admin@example.com")
+    .findOne();
+
+  if (user) {
+    console.log("Found admin user:", user.id);
+    console.log("User data:", user.data);
+  } else {
+    console.log("Admin user not found");
+  }
+
+  // Find with multiple conditions
+  const premiumUser = await updater
+    .collection("users")
+    .where("tier", "==", "premium")
+    .where("status", "==", "active")
+    .findOne();
+
+  if (premiumUser) {
+    console.log("Found premium user:", premiumUser.id);
+  }
+
+  // Combine findOne with select for efficient lookups
+  const profile = await updater
+    .collection("users")
+    .select("name", "avatar", "bio")
+    .where("username", "==", "johndoe")
+    .findOne();
+
+  if (profile) {
+    console.log("Profile data (only selected fields):", profile.data);
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -611,4 +682,6 @@ Promise.all([
   subcollectionExample(),
   collectionGroupExample(),
   fieldValueDeleteExample(),
+  selectExample(),
+  findOneExample(),
 ]).catch(console.error);
