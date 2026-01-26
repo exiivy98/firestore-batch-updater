@@ -15,7 +15,9 @@ English | [한국어](./README.ko.md)
 - Batch create/upsert/delete - Create, upsert, or delete multiple documents at once
 - Sorting and limiting - Use `orderBy()` and `limit()` for precise control
 - Field selection - Use `select()` to load only needed fields (saves memory and costs)
-- Find single document - Use `findOne()` for efficient single-document retrieval
+- Single document operations - Use `findOne()`, `updateOne()`, `deleteOne()` for efficient single-doc ops
+- Existence check - Use `exists()` to quickly check if matching documents exist
+- Get all documents - Use `getAll()` to retrieve all matching documents with data
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -87,12 +89,16 @@ console.log(`Updated ${result.successCount} documents`);
 | `limit(count)` | Limit number of documents (chainable) | `this` |
 | `select(...fields)` | Select specific fields to retrieve (chainable) | `this` |
 | `count()` | Count matching documents | `CountResult` |
+| `exists()` | Check if matching documents exist | `boolean` |
 | `findOne()` | Find first matching document | `{ id, data } \| null` |
+| `getAll()` | Get all matching documents | `{ id, data }[]` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
+| `updateOne(data)` | Update first matching document | `{ success, id }` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
 | `upsert(data, options?)` | Update or create (set with merge) | `UpsertResult` |
 | `delete(options?)` | Delete matching documents | `DeleteResult` |
+| `deleteOne()` | Delete first matching document | `{ success, id }` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -361,6 +367,79 @@ const profile = await updater
   .select("name", "avatar", "tier")
   .where("username", "==", "johndoe")
   .findOne();
+```
+
+### Check Document Existence
+
+```typescript
+// Check if any admin users exist
+const hasAdmin = await updater
+  .collection("users")
+  .where("role", "==", "admin")
+  .exists();
+
+if (!hasAdmin) {
+  console.log("No admin users found - creating default admin");
+}
+
+// Check before expensive operations
+const hasOldLogs = await updater
+  .collection("logs")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .exists();
+
+if (hasOldLogs) {
+  // Proceed with cleanup
+}
+```
+
+### Get All Documents
+
+```typescript
+// Get all matching documents with their data
+const activeUsers = await updater
+  .collection("users")
+  .select("name", "email", "tier")
+  .where("status", "==", "active")
+  .limit(100)
+  .getAll();
+
+console.log(`Found ${activeUsers.length} active users`);
+activeUsers.forEach(user => {
+  console.log(`${user.id}: ${user.data.name}`);
+});
+```
+
+### Update Single Document
+
+```typescript
+// Update only the first matching document
+const result = await updater
+  .collection("users")
+  .where("email", "==", "user@example.com")
+  .updateOne({ lastLogin: new Date(), loginCount: FieldValue.increment(1) });
+
+if (result.success) {
+  console.log(`Updated user: ${result.id}`);
+} else {
+  console.log("User not found");
+}
+```
+
+### Delete Single Document
+
+```typescript
+// Delete only the first matching document
+const result = await updater
+  .collection("sessions")
+  .where("token", "==", expiredToken)
+  .deleteOne();
+
+if (result.success) {
+  console.log(`Deleted session: ${result.id}`);
+} else {
+  console.log("Session not found");
+}
 ```
 
 ### Dry Run Mode

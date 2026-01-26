@@ -168,6 +168,82 @@ export class BatchUpdater {
   }
 
   /**
+   * Check if any documents match the query conditions
+   * @returns True if at least one document exists, false otherwise
+   */
+  async exists(): Promise<boolean> {
+    this.validateSetup();
+
+    const query = this.buildQuery().limit(1);
+    const snapshot = await query.count().get();
+
+    return snapshot.data().count > 0;
+  }
+
+  /**
+   * Get all documents matching the query conditions
+   * @returns Array of documents with id and data
+   */
+  async getAll(): Promise<{ id: string; data: Record<string, any> }[]> {
+    this.validateSetup();
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    }));
+  }
+
+  /**
+   * Update the first document matching the query conditions
+   * @param updateData - Data to update
+   * @returns Result with success status and document id
+   */
+  async updateOne(
+    updateData: Record<string, any>
+  ): Promise<{ success: boolean; id: string | null }> {
+    this.validateSetup();
+
+    if (!isValidUpdateData(updateData)) {
+      throw new Error("Update data must be a non-empty object");
+    }
+
+    const query = this.buildQuery().limit(1);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return { success: false, id: null };
+    }
+
+    const doc = snapshot.docs[0];
+    await doc.ref.update(updateData);
+
+    return { success: true, id: doc.id };
+  }
+
+  /**
+   * Delete the first document matching the query conditions
+   * @returns Result with success status and document id
+   */
+  async deleteOne(): Promise<{ success: boolean; id: string | null }> {
+    this.validateSetup();
+
+    const query = this.buildQuery().limit(1);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return { success: false, id: null };
+    }
+
+    const doc = snapshot.docs[0];
+    await doc.ref.delete();
+
+    return { success: true, id: doc.id };
+  }
+
+  /**
    * Preview changes before executing update
    * @param updateData - Data to update
    * @returns Preview result with affected count and samples

@@ -15,7 +15,9 @@
 - 일괄 생성/Upsert/삭제 - 여러 문서를 한 번에 생성, upsert 또는 삭제
 - 정렬 및 제한 - `orderBy()`와 `limit()`으로 정밀한 제어
 - 필드 선택 - `select()`로 필요한 필드만 로드 (메모리 및 비용 절약)
-- 단일 문서 조회 - `findOne()`으로 효율적인 단일 문서 검색
+- 단일 문서 작업 - `findOne()`, `updateOne()`, `deleteOne()`으로 효율적인 단일 문서 처리
+- 존재 여부 확인 - `exists()`로 매칭 문서 존재 여부 빠르게 확인
+- 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -87,12 +89,16 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `limit(count)` | 문서 수 제한 (체이닝 가능) | `this` |
 | `select(...fields)` | 특정 필드만 조회 (체이닝 가능) | `this` |
 | `count()` | 매칭되는 문서 개수 조회 | `CountResult` |
+| `exists()` | 매칭되는 문서 존재 여부 확인 | `boolean` |
 | `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
+| `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
+| `updateOne(data)` | 첫 번째 매칭 문서 업데이트 | `{ success, id }` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
 | `upsert(data, options?)` | 업데이트 또는 생성 (set with merge) | `UpsertResult` |
 | `delete(options?)` | 매칭되는 문서 삭제 | `DeleteResult` |
+| `deleteOne()` | 첫 번째 매칭 문서 삭제 | `{ success, id }` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -362,6 +368,79 @@ const profile = await updater
   .select("name", "avatar", "tier")
   .where("username", "==", "johndoe")
   .findOne();
+```
+
+### 문서 존재 여부 확인
+
+```typescript
+// 관리자 사용자가 있는지 확인
+const hasAdmin = await updater
+  .collection("users")
+  .where("role", "==", "admin")
+  .exists();
+
+if (!hasAdmin) {
+  console.log("관리자 없음 - 기본 관리자 생성");
+}
+
+// 비용이 많이 드는 작업 전에 확인
+const hasOldLogs = await updater
+  .collection("logs")
+  .where("createdAt", "<", thirtyDaysAgo)
+  .exists();
+
+if (hasOldLogs) {
+  // 정리 작업 진행
+}
+```
+
+### 전체 문서 조회
+
+```typescript
+// 매칭되는 모든 문서와 데이터 조회
+const activeUsers = await updater
+  .collection("users")
+  .select("name", "email", "tier")
+  .where("status", "==", "active")
+  .limit(100)
+  .getAll();
+
+console.log(`${activeUsers.length}명의 활성 사용자 발견`);
+activeUsers.forEach(user => {
+  console.log(`${user.id}: ${user.data.name}`);
+});
+```
+
+### 단일 문서 업데이트
+
+```typescript
+// 첫 번째 매칭 문서만 업데이트
+const result = await updater
+  .collection("users")
+  .where("email", "==", "user@example.com")
+  .updateOne({ lastLogin: new Date(), loginCount: FieldValue.increment(1) });
+
+if (result.success) {
+  console.log(`사용자 업데이트 완료: ${result.id}`);
+} else {
+  console.log("사용자를 찾을 수 없음");
+}
+```
+
+### 단일 문서 삭제
+
+```typescript
+// 첫 번째 매칭 문서만 삭제
+const result = await updater
+  .collection("sessions")
+  .where("token", "==", expiredToken)
+  .deleteOne();
+
+if (result.success) {
+  console.log(`세션 삭제 완료: ${result.id}`);
+} else {
+  console.log("세션을 찾을 수 없음");
+}
 ```
 
 ### Dry Run 모드

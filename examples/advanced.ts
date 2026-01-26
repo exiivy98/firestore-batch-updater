@@ -17,6 +17,10 @@
  * - Collection group queries
  * - Select specific fields with select()
  * - Find single document with findOne()
+ * - Check document existence with exists()
+ * - Get all matching documents with getAll()
+ * - Update single document with updateOne()
+ * - Delete single document with deleteOne()
  */
 
 import { getFirestore } from "firebase-admin/firestore";
@@ -668,6 +672,146 @@ async function findOneExample() {
   }
 }
 
+async function existsExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 21: Check Document Existence ===");
+
+  // Check if any admin users exist
+  const hasAdmin = await updater
+    .collection("users")
+    .where("role", "==", "admin")
+    .exists();
+
+  console.log(`Admin users exist: ${hasAdmin}`);
+
+  if (!hasAdmin) {
+    console.log("No admin users found - consider creating a default admin");
+  }
+
+  // Check before expensive operations
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const hasOldLogs = await updater
+    .collection("logs")
+    .where("createdAt", "<", thirtyDaysAgo)
+    .exists();
+
+  if (hasOldLogs) {
+    console.log("Old logs exist - cleanup may be needed");
+  } else {
+    console.log("No old logs found - cleanup not needed");
+  }
+
+  // Use exists for quick validation
+  const hasActiveUsers = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .exists();
+
+  console.log(`Active users exist: ${hasActiveUsers}`);
+}
+
+async function getAllExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 22: Get All Matching Documents ===");
+
+  // Get all active premium users
+  const premiumUsers = await updater
+    .collection("users")
+    .select("name", "email", "tier")
+    .where("status", "==", "active")
+    .where("tier", "==", "premium")
+    .limit(50)
+    .getAll();
+
+  console.log(`Found ${premiumUsers.length} premium users`);
+  premiumUsers.forEach((user) => {
+    console.log(`  - ${user.id}: ${user.data.name} (${user.data.email})`);
+  });
+
+  // Get all with orderBy
+  const topScorers = await updater
+    .collection("users")
+    .select("name", "score")
+    .where("status", "==", "active")
+    .orderBy("score", "desc")
+    .limit(10)
+    .getAll();
+
+  console.log("\nTop 10 scorers:");
+  topScorers.forEach((user, index) => {
+    console.log(`  ${index + 1}. ${user.data.name}: ${user.data.score} points`);
+  });
+}
+
+async function updateOneExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 23: Update Single Document ===");
+
+  // Update a user by email
+  const result = await updater
+    .collection("users")
+    .where("email", "==", "user@example.com")
+    .updateOne({
+      lastLogin: new Date(),
+      loginCount: FieldValue.increment(1),
+    });
+
+  if (result.success) {
+    console.log(`Successfully updated user: ${result.id}`);
+  } else {
+    console.log("User not found");
+  }
+
+  // Update first matching document
+  const sessionResult = await updater
+    .collection("sessions")
+    .where("userId", "==", "user-123")
+    .where("active", "==", true)
+    .updateOne({
+      lastActivity: FieldValue.serverTimestamp(),
+    });
+
+  if (sessionResult.success) {
+    console.log(`Updated session: ${sessionResult.id}`);
+  }
+}
+
+async function deleteOneExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 24: Delete Single Document ===");
+
+  // Delete a specific session by token
+  const result = await updater
+    .collection("sessions")
+    .where("token", "==", "expired-token-123")
+    .deleteOne();
+
+  if (result.success) {
+    console.log(`Deleted session: ${result.id}`);
+  } else {
+    console.log("Session not found");
+  }
+
+  // Delete first matching notification
+  const notificationResult = await updater
+    .collection("notifications")
+    .where("userId", "==", "user-123")
+    .where("read", "==", true)
+    .deleteOne();
+
+  if (notificationResult.success) {
+    console.log(`Deleted notification: ${notificationResult.id}`);
+  } else {
+    console.log("No read notifications to delete");
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -684,4 +828,8 @@ Promise.all([
   fieldValueDeleteExample(),
   selectExample(),
   findOneExample(),
+  existsExample(),
+  getAllExample(),
+  updateOneExample(),
+  deleteOneExample(),
 ]).catch(console.error);
