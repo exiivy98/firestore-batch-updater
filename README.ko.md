@@ -15,9 +15,11 @@
 - 일괄 생성/Upsert/삭제 - 여러 문서를 한 번에 생성, upsert 또는 삭제
 - 정렬 및 제한 - `orderBy()`와 `limit()`으로 정밀한 제어
 - 필드 선택 - `select()`로 필요한 필드만 로드 (메모리 및 비용 절약)
-- 단일 문서 작업 - `findOne()`, `updateOne()`, `deleteOne()`으로 효율적인 단일 문서 처리
+- 단일 문서 작업 - `findOne()`, `createOne()`, `updateOne()`, `deleteOne()`으로 효율적인 단일 문서 처리
 - 존재 여부 확인 - `exists()`로 매칭 문서 존재 여부 빠르게 확인
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
+- 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
+- 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -96,9 +98,12 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
 | `updateOne(data)` | 첫 번째 매칭 문서 업데이트 | `{ success, id }` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
+| `createOne(data, id?)` | 단일 문서 생성 | `{ success, id }` |
 | `upsert(data, options?)` | 업데이트 또는 생성 (set with merge) | `UpsertResult` |
 | `delete(options?)` | 매칭되는 문서 삭제 | `DeleteResult` |
 | `deleteOne()` | 첫 번째 매칭 문서 삭제 | `{ success, id }` |
+| `aggregate(spec)` | sum/average/count 집계 쿼리 | `AggregateResult` |
+| `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -146,6 +151,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `AggregateResult` | `{ [alias]: number \| null }` |
+| `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -441,6 +448,67 @@ if (result.success) {
 } else {
   console.log("세션을 찾을 수 없음");
 }
+```
+
+### 단일 문서 생성
+
+```typescript
+// 자동 생성 ID로 문서 생성
+const result = await updater
+  .collection("users")
+  .createOne({ name: "Alice", status: "active", score: 100 });
+
+console.log(`문서 생성 완료: ${result.id}`);
+
+// 커스텀 ID로 문서 생성
+const result2 = await updater
+  .collection("users")
+  .createOne({ name: "Bob", status: "active" }, "custom-bob-id");
+```
+
+### 집계 쿼리
+
+```typescript
+// 매칭 문서에 대해 sum, average, count 집계
+const stats = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .aggregate({
+    totalAmount: { op: "sum", field: "amount" },
+    avgAmount: { op: "average", field: "amount" },
+    orderCount: { op: "count" },
+  });
+
+console.log(`총액: ${stats.totalAmount}원`);
+console.log(`평균: ${stats.avgAmount}원`);
+console.log(`주문 수: ${stats.orderCount}건`);
+```
+
+### 커서 기반 페이지네이션
+
+```typescript
+// 페이지 단위로 효율적으로 문서 조회
+let nextCursor = undefined;
+
+do {
+  const page = await updater
+    .collection("users")
+    .orderBy("createdAt", "desc")
+    .paginate({ pageSize: 20, startAfter: nextCursor });
+
+  page.docs.forEach((doc) => {
+    console.log(`${doc.id}: ${doc.data.name}`);
+  });
+
+  nextCursor = page.nextCursor;
+} while (nextCursor);
+
+// select와 함께 사용하여 메모리 효율 극대화
+const page = await updater
+  .collection("users")
+  .select("name", "email")
+  .orderBy("name")
+  .paginate({ pageSize: 50 });
 ```
 
 ### Dry Run 모드

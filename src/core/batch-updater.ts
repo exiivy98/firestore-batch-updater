@@ -10,6 +10,8 @@ import type {
   QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
+import { AggregateField } from "firebase-admin/firestore";
+
 import type {
   UpdateOptions,
   UpdateResult,
@@ -27,6 +29,10 @@ import type {
   DeleteResult,
   CountResult,
   DryRunResult,
+  AggregateSpec,
+  AggregateResult,
+  PaginateOptions,
+  PaginateResult,
 } from "../types";
 
 import {
@@ -241,6 +247,125 @@ export class BatchUpdater {
     await doc.ref.delete();
 
     return { success: true, id: doc.id };
+  }
+
+  /**
+   * Create a single document in the collection
+   * @param data - Document data
+   * @param id - Optional document ID (auto-generated if not provided)
+   * @returns Result with success status and document id
+   */
+  async createOne(
+    data: Record<string, any>,
+    id?: string
+  ): Promise<{ success: boolean; id: string }> {
+    this.validateSetup();
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "createOne() cannot be used with collectionGroup(). Use collection() with a specific path instead."
+      );
+    }
+
+    if (!isValidUpdateData(data)) {
+      throw new Error("Document data must be a non-empty object");
+    }
+
+    const collection = this.firestore.collection(this.collectionPath!);
+    const docRef = id ? collection.doc(id) : collection.doc();
+    await docRef.set(data);
+
+    return { success: true, id: docRef.id };
+  }
+
+  /**
+   * Run aggregate queries (sum, average, count) on matching documents
+   * @param spec - Aggregate specification defining operations and fields
+   * @returns Object with alias keys and numeric results
+   */
+  async aggregate(spec: AggregateSpec): Promise<AggregateResult> {
+    this.validateSetup();
+
+    if (!spec || Object.keys(spec).length === 0) {
+      throw new Error("Aggregate spec must be a non-empty object");
+    }
+
+    const query = this.buildQuery();
+
+    // Build aggregate fields
+    const aggregateFields: Record<string, ReturnType<typeof AggregateField.sum>> = {};
+
+    for (const [alias, definition] of Object.entries(spec)) {
+      switch (definition.op) {
+        case "sum":
+          if (!definition.field) {
+            throw new Error(`Field is required for sum operation (alias: ${alias})`);
+          }
+          aggregateFields[alias] = AggregateField.sum(definition.field);
+          break;
+        case "average":
+          if (!definition.field) {
+            throw new Error(`Field is required for average operation (alias: ${alias})`);
+          }
+          aggregateFields[alias] = AggregateField.average(definition.field);
+          break;
+        case "count":
+          aggregateFields[alias] = AggregateField.count();
+          break;
+        default:
+          throw new Error(`Unknown aggregate operation: ${(definition as any).op}`);
+      }
+    }
+
+    const snapshot = await query.aggregate(aggregateFields).get();
+    const data = snapshot.data();
+
+    const result: AggregateResult = {};
+    for (const alias of Object.keys(spec)) {
+      result[alias] = (data as any)[alias] ?? null;
+    }
+
+    return result;
+  }
+
+  /**
+   * Get documents with cursor-based pagination
+   * @param options - Pagination options (pageSize, startAfter cursor)
+   * @returns Page of documents with cursor for next page
+   */
+  async paginate(options: PaginateOptions): Promise<PaginateResult> {
+    this.validateSetup();
+
+    if (!options.pageSize || options.pageSize <= 0) {
+      throw new Error("pageSize must be a positive number");
+    }
+
+    // Fetch one extra document to determine if there are more pages
+    let query = this.buildQuery().limit(options.pageSize + 1);
+
+    if (options.startAfter) {
+      query = query.startAfter(options.startAfter);
+    }
+
+    const snapshot = await query.get();
+    const hasMore = snapshot.docs.length > options.pageSize;
+
+    // Only return pageSize documents
+    const docs = snapshot.docs.slice(0, options.pageSize).map((doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    }));
+
+    // The cursor is the last document snapshot for startAfter
+    const lastDoc = snapshot.docs.length > 0
+      ? snapshot.docs[Math.min(snapshot.docs.length - 1, options.pageSize - 1)]
+      : null;
+
+    return {
+      docs,
+      nextCursor: hasMore ? lastDoc : null,
+      hasMore,
+    };
   }
 
   /**

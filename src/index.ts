@@ -34,6 +34,11 @@ export type {
   LogOptions,
   LogEntry,
   OperationLog,
+  CreateOneResult,
+  AggregateSpec,
+  AggregateResult,
+  PaginateOptions,
+  PaginateResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)

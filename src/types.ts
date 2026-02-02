@@ -286,3 +286,47 @@ export interface FindOneResult {
   id: string; // Document ID
   data: Record<string, any>; // Document data
 }
+
+/**
+ * Result of createOne operation
+ */
+export interface CreateOneResult {
+  success: boolean; // Whether the document was created
+  id: string; // Created document ID
+}
+
+/**
+ * Aggregate operation specification
+ * Each key is the alias for the result, value defines the operation
+ */
+export interface AggregateSpec {
+  [alias: string]: {
+    op: "sum" | "average" | "count";
+    field?: string; // Required for sum and average, not needed for count
+  };
+}
+
+/**
+ * Result of aggregate operation
+ * Keys match the aliases from AggregateSpec
+ */
+export interface AggregateResult {
+  [alias: string]: number | null;
+}
+
+/**
+ * Options for paginate operation
+ */
+export interface PaginateOptions {
+  pageSize: number; // Number of documents per page
+  startAfter?: unknown; // Cursor from previous paginate() call (nextCursor)
+}
+
+/**
+ * Result of paginate operation
+ */
+export interface PaginateResult {
+  docs: { id: string; data: Record<string, any> }[]; // Documents in this page
+  nextCursor: unknown | null; // Pass to next paginate() call, null if no more pages
+  hasMore: boolean; // Whether there are more pages
+}

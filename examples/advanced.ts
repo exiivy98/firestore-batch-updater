@@ -21,6 +21,9 @@
  * - Get all matching documents with getAll()
  * - Update single document with updateOne()
  * - Delete single document with deleteOne()
+ * - Create single document with createOne()
+ * - Aggregate queries with aggregate()
+ * - Cursor-based pagination with paginate()
  */
 
 import { getFirestore } from "firebase-admin/firestore";
@@ -812,6 +815,90 @@ async function deleteOneExample() {
   }
 }
 
+async function createOneExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 25: Create Single Document ===");
+
+  // Create with auto-generated ID
+  const result = await updater
+    .collection("users")
+    .createOne({ name: "Alice", status: "active", score: 100 });
+
+  console.log(`Created document with auto ID: ${result.id}`);
+
+  // Create with custom ID
+  const result2 = await updater
+    .collection("users")
+    .createOne(
+      { name: "Bob", status: "active", score: 200 },
+      "custom-bob-id"
+    );
+
+  console.log(`Created document with custom ID: ${result2.id}`);
+}
+
+async function aggregateExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 26: Aggregate Queries ===");
+
+  // Sum of all order amounts
+  const orderStats = await updater
+    .collection("orders")
+    .where("status", "==", "completed")
+    .aggregate({
+      totalAmount: { op: "sum", field: "amount" },
+      avgAmount: { op: "average", field: "amount" },
+      orderCount: { op: "count" },
+    });
+
+  console.log(`Total revenue: $${orderStats.totalAmount}`);
+  console.log(`Average order: $${orderStats.avgAmount}`);
+  console.log(`Total orders: ${orderStats.orderCount}`);
+
+  // Simple count using aggregate
+  const userStats = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .aggregate({
+      totalScore: { op: "sum", field: "score" },
+      avgScore: { op: "average", field: "score" },
+    });
+
+  console.log(`Total score: ${userStats.totalScore}`);
+  console.log(`Average score: ${userStats.avgScore}`);
+}
+
+async function paginateExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 27: Cursor-Based Pagination ===");
+
+  // Page through all active users
+  let pageNumber = 1;
+  let nextCursor: unknown = undefined;
+
+  do {
+    const page = await updater
+      .collection("users")
+      .select("name", "email")
+      .where("status", "==", "active")
+      .orderBy("name")
+      .paginate({ pageSize: 10, startAfter: nextCursor });
+
+    console.log(`\nPage ${pageNumber}: ${page.docs.length} documents`);
+    page.docs.forEach((doc) => {
+      console.log(`  - ${doc.id}: ${doc.data.name}`);
+    });
+
+    nextCursor = page.nextCursor;
+    pageNumber++;
+  } while (nextCursor);
+
+  console.log("Pagination complete!");
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -832,4 +919,7 @@ Promise.all([
   getAllExample(),
   updateOneExample(),
   deleteOneExample(),
+  createOneExample(),
+  aggregateExample(),
+  paginateExample(),
 ]).catch(console.error);

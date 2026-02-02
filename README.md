@@ -15,9 +15,11 @@ English | [한국어](./README.ko.md)
 - Batch create/upsert/delete - Create, upsert, or delete multiple documents at once
 - Sorting and limiting - Use `orderBy()` and `limit()` for precise control
 - Field selection - Use `select()` to load only needed fields (saves memory and costs)
-- Single document operations - Use `findOne()`, `updateOne()`, `deleteOne()` for efficient single-doc ops
+- Single document operations - Use `findOne()`, `createOne()`, `updateOne()`, `deleteOne()` for efficient single-doc ops
 - Existence check - Use `exists()` to quickly check if matching documents exist
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
+- Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
+- Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -96,9 +98,12 @@ console.log(`Updated ${result.successCount} documents`);
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
 | `updateOne(data)` | Update first matching document | `{ success, id }` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
+| `createOne(data, id?)` | Create a single document | `{ success, id }` |
 | `upsert(data, options?)` | Update or create (set with merge) | `UpsertResult` |
 | `delete(options?)` | Delete matching documents | `DeleteResult` |
 | `deleteOne()` | Delete first matching document | `{ success, id }` |
+| `aggregate(spec)` | Run sum/average/count queries | `AggregateResult` |
+| `paginate(options)` | Cursor-based pagination | `PaginateResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -146,6 +151,8 @@ All write operations support an optional `options` parameter:
 | `CreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `AggregateResult` | `{ [alias]: number \| null }` |
+| `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -440,6 +447,67 @@ if (result.success) {
 } else {
   console.log("Session not found");
 }
+```
+
+### Create Single Document
+
+```typescript
+// Create with auto-generated ID
+const result = await updater
+  .collection("users")
+  .createOne({ name: "Alice", status: "active", score: 100 });
+
+console.log(`Created document: ${result.id}`);
+
+// Create with custom ID
+const result2 = await updater
+  .collection("users")
+  .createOne({ name: "Bob", status: "active" }, "custom-bob-id");
+```
+
+### Aggregate Queries
+
+```typescript
+// Sum, average, count on matching documents
+const stats = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .aggregate({
+    totalAmount: { op: "sum", field: "amount" },
+    avgAmount: { op: "average", field: "amount" },
+    orderCount: { op: "count" },
+  });
+
+console.log(`Total: $${stats.totalAmount}`);
+console.log(`Average: $${stats.avgAmount}`);
+console.log(`Orders: ${stats.orderCount}`);
+```
+
+### Cursor-Based Pagination
+
+```typescript
+// Page through documents efficiently
+let nextCursor = undefined;
+
+do {
+  const page = await updater
+    .collection("users")
+    .orderBy("createdAt", "desc")
+    .paginate({ pageSize: 20, startAfter: nextCursor });
+
+  page.docs.forEach((doc) => {
+    console.log(`${doc.id}: ${doc.data.name}`);
+  });
+
+  nextCursor = page.nextCursor;
+} while (nextCursor);
+
+// Works with select for memory efficiency
+const page = await updater
+  .collection("users")
+  .select("name", "email")
+  .orderBy("name")
+  .paginate({ pageSize: 50 });
 ```
 
 ### Dry Run Mode

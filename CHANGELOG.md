@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-02-02
+
+### Added
+
+- **`createOne()` method** - Create a single document in a collection
+  - Returns `{ success: boolean, id: string }`
+  - Supports auto-generated or custom document IDs
+  - Completes the single-document CRUD set (findOne, updateOne, deleteOne, createOne)
+- **`aggregate()` method** - Run aggregate queries on matching documents
+  - Supports `sum`, `average`, and `count` operations
+  - Uses Firestore's native aggregation for efficient server-side computation
+  - Works with `where()` conditions for filtered aggregation
+- **`paginate()` method** - Cursor-based pagination for large result sets
+  - Returns `{ docs, nextCursor, hasMore }` for easy page-by-page iteration
+  - Works with `orderBy()`, `select()`, and `where()` conditions
+  - Memory-efficient alternative to `getAll()` for large datasets
+
+### Types
+
+- Added `CreateOneResult` type
+- Added `AggregateSpec` / `AggregateResult` types
+- Added `PaginateOptions` / `PaginateResult` types
+
 ## [1.4.0] - 2025-01-26
 
 ### Added
