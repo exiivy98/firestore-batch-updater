@@ -330,3 +330,36 @@ export interface PaginateResult {
   nextCursor: unknown | null; // Pass to next paginate() call, null if no more pages
   hasMore: boolean; // Whether there are more pages
 }
+
+/**
+ * Input for bulk update operation
+ */
+export interface BulkUpdateInput {
+  id: string; // Document ID
+  data: Record<string, any>; // Data to update for this document
+}
+
+/**
+ * Options for bulk update operation
+ */
+export interface BulkUpdateOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+}
+
+/**
+ * Result of bulk update operation
+ */
+export interface BulkUpdateResult {
+  successCount: number; // Number of successfully updated documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of processed documents
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}

@@ -33,6 +33,9 @@ import type {
   AggregateResult,
   PaginateOptions,
   PaginateResult,
+  BulkUpdateInput,
+  BulkUpdateOptions,
+  BulkUpdateResult,
 } from "../types";
 
 import {
@@ -200,6 +203,48 @@ export class BatchUpdater {
       id: doc.id,
       data: doc.data(),
     }));
+  }
+
+  /**
+   * Get a document by its ID directly (faster than findOne with where)
+   * @param id - Document ID
+   * @returns Document with id and data, or null if not found
+   */
+  async getOne(id: string): Promise<{ id: string; data: Record<string, any> } | null> {
+    this.validateSetup();
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "getOne() cannot be used with collectionGroup(). Use findOne() with where conditions instead."
+      );
+    }
+
+    const docRef = this.firestore.collection(this.collectionPath!).doc(id);
+
+    // Apply select if specified
+    let docSnapshot;
+    if (this.selectedFields && this.selectedFields.length > 0) {
+      // For select with getOne, we need to use a query with documentId
+      const query = this.firestore
+        .collection(this.collectionPath!)
+        .where("__name__", "==", docRef)
+        .select(...this.selectedFields);
+      const snapshot = await query.get();
+      if (snapshot.empty) {
+        return null;
+      }
+      docSnapshot = snapshot.docs[0];
+    } else {
+      docSnapshot = await docRef.get();
+      if (!docSnapshot.exists) {
+        return null;
+      }
+    }
+
+    return {
+      id: docSnapshot.id,
+      data: docSnapshot.data() as Record<string, any>,
+    };
   }
 
   /**
@@ -733,6 +778,110 @@ export class BatchUpdater {
       failureCount,
       totalCount,
       createdIds,
+      failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
+    };
+
+    // Write log file if enabled
+    if (logCollector && options.log) {
+      result.logFilePath = logCollector.finalize(options.log);
+    }
+
+    return result;
+  }
+
+  /**
+   * Update multiple documents with different data for each
+   * @param updates - Array of { id, data } objects specifying updates for each document
+   * @param options - Bulk update options (e.g., progress callback, log options)
+   * @returns Bulk update result with success/failure counts and optional log file path
+   */
+  async bulkUpdate(
+    updates: BulkUpdateInput[],
+    options: BulkUpdateOptions = {}
+  ): Promise<BulkUpdateResult & { logFilePath?: string }> {
+    this.validateSetup();
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "bulkUpdate() cannot be used with collectionGroup(). Use collection() with a specific path instead."
+      );
+    }
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      throw new Error("Updates array must be non-empty");
+    }
+
+    for (const update of updates) {
+      if (!update.id || typeof update.id !== "string") {
+        throw new Error("Each update must have a valid id");
+      }
+      if (!isValidUpdateData(update.data)) {
+        throw new Error("Each update must have valid data");
+      }
+    }
+
+    const totalCount = updates.length;
+    let successCount = 0;
+    let failureCount = 0;
+    const failedDocIds: string[] = [];
+
+    // Initialize log collector if logging is enabled
+    const logCollector = options.log?.enabled
+      ? createLogCollector("update", this.collectionPath!)
+      : null;
+
+    const bulkWriter = this.firestore.bulkWriter();
+    const collection = this.firestore.collection(this.collectionPath!);
+
+    let processedCount = 0;
+
+    // Map to track document IDs for logging
+    const docIdMap = new Map<string, string>();
+    for (const update of updates) {
+      const docRef = collection.doc(update.id);
+      docIdMap.set(docRef.path, update.id);
+    }
+
+    bulkWriter.onWriteResult((ref) => {
+      successCount++;
+      processedCount++;
+
+      const docId = docIdMap.get(ref.path) || ref.id;
+      logCollector?.addEntry(docId, "success");
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+    });
+
+    bulkWriter.onWriteError((error) => {
+      failureCount++;
+      processedCount++;
+
+      const docId = error.documentRef?.id || "unknown";
+      failedDocIds.push(docId);
+      logCollector?.addEntry(docId, "failure", error.message);
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+
+      return false;
+    });
+
+    for (const update of updates) {
+      const docRef = collection.doc(update.id);
+      bulkWriter.update(docRef, update.data);
+    }
+
+    await bulkWriter.close();
+
+    const result: BulkUpdateResult & { logFilePath?: string } = {
+      successCount,
+      failureCount,
+      totalCount,
       failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
     };
 

@@ -899,6 +899,74 @@ async function paginateExample() {
   console.log("Pagination complete!");
 }
 
+async function getOneExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 28: Get Document by ID ===");
+
+  // Get a single document by ID (fastest lookup)
+  const user = await updater.collection("users").getOne("user-123");
+
+  if (user) {
+    console.log(`Found user: ${user.data.name} (${user.data.email})`);
+  } else {
+    console.log("User not found");
+  }
+
+  // Get with select to limit fields
+  const userBasic = await updater
+    .collection("users")
+    .select("name", "email")
+    .getOne("user-123");
+
+  if (userBasic) {
+    console.log(`User basic info: ${userBasic.data.name}`);
+  }
+
+  // Get from subcollection
+  const order = await updater
+    .collection("users/user-123/orders")
+    .getOne("order-456");
+
+  if (order) {
+    console.log(`Order status: ${order.data.status}`);
+  }
+}
+
+async function bulkUpdateExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 29: Bulk Update with Different Data ===");
+
+  // Update multiple documents with different data each
+  const result = await updater.collection("users").bulkUpdate([
+    { id: "user-1", data: { name: "Alice", status: "active" } },
+    { id: "user-2", data: { name: "Bob", age: 30 } },
+    { id: "user-3", data: { email: "charlie@example.com", verified: true } },
+  ]);
+
+  console.log(`Success: ${result.successCount}, Failed: ${result.failureCount}`);
+
+  // Bulk update with progress tracking
+  const updates = Array.from({ length: 100 }, (_, i) => ({
+    id: `product-${i}`,
+    data: { lastChecked: new Date(), checkCount: i + 1 },
+  }));
+
+  const batchResult = await updater.collection("products").bulkUpdate(updates, {
+    onProgress: (progress) => {
+      console.log(`Progress: ${progress.processedCount}/${progress.totalCount}`);
+    },
+  });
+
+  console.log(`Bulk update complete: ${batchResult.successCount} succeeded`);
+
+  // Handle failures
+  if (batchResult.failureCount > 0) {
+    console.log("Failed document IDs:", batchResult.failedDocIds);
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -922,4 +990,6 @@ Promise.all([
   createOneExample(),
   aggregateExample(),
   paginateExample(),
+  getOneExample(),
+  bulkUpdateExample(),
 ]).catch(console.error);

@@ -20,6 +20,8 @@
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
+- ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
+- 벌크 업데이트 - `bulkUpdate()`로 여러 문서에 각기 다른 데이터 업데이트
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -93,6 +95,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `count()` | 매칭되는 문서 개수 조회 | `CountResult` |
 | `exists()` | 매칭되는 문서 존재 여부 확인 | `boolean` |
 | `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
+| `getOne(id)` | ID로 문서 직접 조회 | `{ id, data } \| null` |
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
@@ -104,6 +107,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `deleteOne()` | 첫 번째 매칭 문서 삭제 | `{ success, id }` |
 | `aggregate(spec)` | sum/average/count 집계 쿼리 | `AggregateResult` |
 | `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
+| `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -153,6 +157,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
+| `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -509,6 +514,62 @@ const page = await updater
   .select("name", "email")
   .orderBy("name")
   .paginate({ pageSize: 50 });
+```
+
+### ID로 문서 조회
+
+```typescript
+// 문서 ID로 직접 조회 (쿼리 필터 없이 가장 빠름)
+const user = await updater.collection("users").getOne("user-123");
+
+if (user) {
+  console.log(`찾음: ${user.data.name} (${user.data.email})`);
+} else {
+  console.log("사용자를 찾을 수 없음");
+}
+
+// select와 함께 사용하여 특정 필드만 가져오기
+const userBasic = await updater
+  .collection("users")
+  .select("name", "email")
+  .getOne("user-123");
+
+// 서브컬렉션에서 문서 조회
+const order = await updater
+  .collection("users/user-123/orders")
+  .getOne("order-456");
+```
+
+### 벌크 업데이트
+
+```typescript
+// 여러 문서를 각각 다른 데이터로 업데이트
+const result = await updater.collection("users").bulkUpdate([
+  { id: "user-1", data: { name: "Alice", age: 30 } },
+  { id: "user-2", data: { name: "Bob", status: "active" } },
+  { id: "user-3", data: { email: "charlie@example.com" } },
+]);
+
+console.log(`성공: ${result.successCount}, 실패: ${result.failureCount}`);
+
+// 진행 상황 콜백과 함께 사용
+const result = await updater.collection("products").bulkUpdate(
+  [
+    { id: "prod-1", data: { price: 29.99, stock: 100 } },
+    { id: "prod-2", data: { price: 49.99, stock: 50 } },
+    // ... 더 많은 업데이트
+  ],
+  {
+    onProgress: (progress) => {
+      console.log(`${progress.processedCount}/${progress.totalCount} 처리됨`);
+    },
+  }
+);
+
+// 실패 처리
+if (result.failureCount > 0) {
+  console.log("실패한 문서 ID:", result.failedDocIds);
+}
 ```
 
 ### Dry Run 모드

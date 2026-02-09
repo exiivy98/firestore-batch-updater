@@ -20,6 +20,8 @@ English | [한국어](./README.ko.md)
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
+- Direct ID lookup - Use `getOne()` for fast document retrieval by ID
+- Bulk updates - Use `bulkUpdate()` to update multiple documents with different data each
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -93,6 +95,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `count()` | Count matching documents | `CountResult` |
 | `exists()` | Check if matching documents exist | `boolean` |
 | `findOne()` | Find first matching document | `{ id, data } \| null` |
+| `getOne(id)` | Get document by ID directly | `{ id, data } \| null` |
 | `getAll()` | Get all matching documents | `{ id, data }[]` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
@@ -104,6 +107,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `deleteOne()` | Delete first matching document | `{ success, id }` |
 | `aggregate(spec)` | Run sum/average/count queries | `AggregateResult` |
 | `paginate(options)` | Cursor-based pagination | `PaginateResult` |
+| `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -153,6 +157,7 @@ All write operations support an optional `options` parameter:
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
+| `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -508,6 +513,51 @@ const page = await updater
   .select("name", "email")
   .orderBy("name")
   .paginate({ pageSize: 50 });
+```
+
+### Get Document by ID
+
+```typescript
+// Fast lookup when you know the document ID
+const user = await updater.collection("users").getOne("user-123");
+
+if (user) {
+  console.log(`Found: ${user.data.name}`);
+} else {
+  console.log("User not found");
+}
+
+// Works with select for field filtering
+const profile = await updater
+  .collection("users")
+  .select("name", "avatar")
+  .getOne("user-123");
+```
+
+### Bulk Update with Different Data
+
+```typescript
+// Update multiple documents with different data for each
+const result = await updater.collection("users").bulkUpdate([
+  { id: "user-1", data: { score: 100, rank: 1 } },
+  { id: "user-2", data: { score: 85, rank: 2 } },
+  { id: "user-3", data: { score: 70, rank: 3 } },
+]);
+
+console.log(`Updated ${result.successCount} documents`);
+
+// With progress tracking
+const result2 = await updater.collection("products").bulkUpdate(
+  [
+    { id: "prod-1", data: { price: 29.99, stock: 100 } },
+    { id: "prod-2", data: { price: 49.99, stock: 50 } },
+  ],
+  {
+    onProgress: (progress) => {
+      console.log(`${progress.percentage}% complete`);
+    },
+  }
+);
 ```
 
 ### Dry Run Mode

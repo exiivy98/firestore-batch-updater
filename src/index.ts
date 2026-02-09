@@ -39,6 +39,9 @@ export type {
   AggregateResult,
   PaginateOptions,
   PaginateResult,
+  BulkUpdateInput,
+  BulkUpdateOptions,
+  BulkUpdateResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)
