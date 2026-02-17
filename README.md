@@ -21,7 +21,7 @@ English | [한국어](./README.ko.md)
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
-- Bulk updates - Use `bulkUpdate()` to update multiple documents with different data each
+- Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -107,7 +107,9 @@ console.log(`Updated ${result.successCount} documents`);
 | `deleteOne()` | Delete first matching document | `{ success, id }` |
 | `aggregate(spec)` | Run sum/average/count queries | `AggregateResult` |
 | `paginate(options)` | Cursor-based pagination | `PaginateResult` |
+| `bulkCreate(docs, options?)` | Create multiple docs with different data | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
+| `bulkDelete(ids, options?)` | Delete multiple docs by ID | `BulkDeleteResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -157,7 +159,9 @@ All write operations support an optional `options` parameter:
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
+| `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
+| `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -558,6 +562,39 @@ const result2 = await updater.collection("products").bulkUpdate(
     },
   }
 );
+```
+
+### Bulk Create
+
+```typescript
+// Create multiple documents with different data
+const result = await updater.collection("users").bulkCreate([
+  { id: "user-1", data: { name: "Alice", role: "admin" } },
+  { id: "user-2", data: { name: "Bob", role: "user" } },
+  { data: { name: "Charlie", role: "user" } }, // auto-generated ID
+]);
+
+console.log(`Created ${result.successCount} documents`);
+console.log("Created IDs:", result.createdIds);
+```
+
+### Bulk Delete
+
+```typescript
+// Delete multiple documents by their IDs
+const result = await updater
+  .collection("users")
+  .bulkDelete(["user-1", "user-2", "user-3"]);
+
+console.log(`Deleted ${result.successCount} documents`);
+console.log("Deleted IDs:", result.deletedIds);
+
+// With progress tracking
+const result2 = await updater.collection("logs").bulkDelete(expiredLogIds, {
+  onProgress: (progress) => {
+    console.log(`${progress.percentage}% complete`);
+  },
+});
 ```
 
 ### Dry Run Mode

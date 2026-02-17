@@ -967,6 +967,66 @@ async function bulkUpdateExample() {
   }
 }
 
+async function bulkCreateExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 30: Bulk Create with Different Data ===");
+
+  // Create multiple documents with different data
+  const result = await updater.collection("users").bulkCreate([
+    { id: "new-user-1", data: { name: "Alice", role: "admin", score: 100 } },
+    { id: "new-user-2", data: { name: "Bob", role: "user", score: 50 } },
+    { data: { name: "Charlie", role: "user", score: 75 } }, // auto-generated ID
+  ]);
+
+  console.log(`Created ${result.successCount} documents`);
+  console.log("Created IDs:", result.createdIds);
+
+  // Bulk create with progress tracking
+  const products = Array.from({ length: 50 }, (_, i) => ({
+    id: `product-${i}`,
+    data: { name: `Product ${i}`, price: (i + 1) * 10, stock: 100 },
+  }));
+
+  const batchResult = await updater.collection("products").bulkCreate(products, {
+    onProgress: (progress) => {
+      console.log(`Progress: ${progress.percentage}%`);
+    },
+  });
+
+  console.log(`Bulk create complete: ${batchResult.successCount} created`);
+}
+
+async function bulkDeleteExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 31: Bulk Delete by IDs ===");
+
+  // Delete multiple documents by their IDs
+  const result = await updater
+    .collection("users")
+    .bulkDelete(["old-user-1", "old-user-2", "old-user-3"]);
+
+  console.log(`Deleted ${result.successCount} documents`);
+  console.log("Deleted IDs:", result.deletedIds);
+
+  // Bulk delete with progress tracking
+  const expiredIds = Array.from({ length: 100 }, (_, i) => `expired-${i}`);
+
+  const batchResult = await updater.collection("sessions").bulkDelete(expiredIds, {
+    onProgress: (progress) => {
+      console.log(`Progress: ${progress.percentage}%`);
+    },
+  });
+
+  console.log(`Bulk delete complete: ${batchResult.successCount} deleted`);
+
+  // Handle failures
+  if (batchResult.failureCount > 0) {
+    console.log("Failed document IDs:", batchResult.failedDocIds);
+  }
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -992,4 +1052,6 @@ Promise.all([
   paginateExample(),
   getOneExample(),
   bulkUpdateExample(),
+  bulkCreateExample(),
+  bulkDeleteExample(),
 ]).catch(console.error);

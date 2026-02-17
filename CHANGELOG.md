@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-02-17
+
+### Added
+
+- **`bulkCreate()` method** - Create multiple documents in bulk with different data for each
+  - Supports auto-generated or custom document IDs per document
+  - Returns `BulkCreateResult` with success/failure counts and created IDs
+  - Completes the bulk CRUD set (bulkCreate, bulkUpdate, bulkDelete)
+- **`bulkDelete()` method** - Delete multiple documents by their IDs
+  - Accepts an array of document IDs to delete
+  - Returns `BulkDeleteResult` with success/failure counts and deleted IDs
+  - Idempotent: deleting non-existent documents succeeds silently
+
+### Types
+
+- Added `BulkCreateInput` / `BulkCreateOptions` / `BulkCreateResult` types
+- Added `BulkDeleteOptions` / `BulkDeleteResult` types
+
 ## [1.6.0] - 2025-02-09
 
 ### Added

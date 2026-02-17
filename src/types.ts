@@ -332,6 +332,66 @@ export interface PaginateResult {
 }
 
 /**
+ * Input for bulk create operation
+ */
+export interface BulkCreateInput {
+  id?: string; // Optional document ID (auto-generated if not provided)
+  data: Record<string, any>; // Document data
+}
+
+/**
+ * Options for bulk create operation
+ */
+export interface BulkCreateOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+}
+
+/**
+ * Result of bulk create operation
+ */
+export interface BulkCreateResult {
+  successCount: number; // Number of successfully created documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of processed documents
+  createdIds: string[]; // Array of created document IDs
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
+ * Options for bulk delete operation
+ */
+export interface BulkDeleteOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+}
+
+/**
+ * Result of bulk delete operation
+ */
+export interface BulkDeleteResult {
+  successCount: number; // Number of successfully deleted documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of processed documents
+  deletedIds: string[]; // Array of deleted document IDs
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
  * Input for bulk update operation
  */
 export interface BulkUpdateInput {

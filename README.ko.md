@@ -21,7 +21,7 @@
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
-- 벌크 업데이트 - `bulkUpdate()`로 여러 문서에 각기 다른 데이터 업데이트
+- 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -107,7 +107,9 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `deleteOne()` | 첫 번째 매칭 문서 삭제 | `{ success, id }` |
 | `aggregate(spec)` | sum/average/count 집계 쿼리 | `AggregateResult` |
 | `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
+| `bulkCreate(docs, options?)` | 여러 문서를 각기 다른 데이터로 생성 | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
+| `bulkDelete(ids, options?)` | ID 배열로 여러 문서 삭제 | `BulkDeleteResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -157,7 +159,9 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
+| `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
+| `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -570,6 +574,39 @@ const result = await updater.collection("products").bulkUpdate(
 if (result.failureCount > 0) {
   console.log("실패한 문서 ID:", result.failedDocIds);
 }
+```
+
+### 벌크 생성
+
+```typescript
+// 여러 문서를 각기 다른 데이터로 생성
+const result = await updater.collection("users").bulkCreate([
+  { id: "user-1", data: { name: "Alice", role: "admin" } },
+  { id: "user-2", data: { name: "Bob", role: "user" } },
+  { data: { name: "Charlie", role: "user" } }, // 자동 생성 ID
+]);
+
+console.log(`${result.successCount}개 문서 생성 완료`);
+console.log("생성된 ID:", result.createdIds);
+```
+
+### 벌크 삭제
+
+```typescript
+// ID 배열로 여러 문서 삭제
+const result = await updater
+  .collection("users")
+  .bulkDelete(["user-1", "user-2", "user-3"]);
+
+console.log(`${result.successCount}개 문서 삭제 완료`);
+console.log("삭제된 ID:", result.deletedIds);
+
+// 진행 상황 추적과 함께 사용
+const result2 = await updater.collection("logs").bulkDelete(expiredLogIds, {
+  onProgress: (progress) => {
+    console.log(`${progress.percentage}% 완료`);
+  },
+});
 ```
 
 ### Dry Run 모드
