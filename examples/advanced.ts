@@ -1027,6 +1027,96 @@ async function bulkDeleteExample() {
   }
 }
 
+async function transformExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 32: Transform Documents ===");
+
+  // Apply custom logic to each document
+  const result = await updater
+    .collection("products")
+    .where("category", "==", "electronics")
+    .transform((doc) => ({
+      price: Math.round(doc.data.price * 1.1 * 100) / 100, // 10% increase
+      name: doc.data.name.toUpperCase(),
+      lastPriceUpdate: new Date(),
+    }));
+
+  console.log(`Transformed: ${result.successCount}, Skipped: ${result.skippedCount}`);
+
+  // Skip documents conditionally
+  const premiumResult = await updater
+    .collection("users")
+    .transform((doc) => {
+      if (doc.data.score < 50) return null; // Skip low scores
+      return { tier: "premium", promotedAt: new Date() };
+    });
+
+  console.log(`Promoted: ${premiumResult.successCount}, Skipped: ${premiumResult.skippedCount}`);
+
+  // Transform with progress tracking
+  const batchResult = await updater
+    .collection("logs")
+    .transform(
+      (doc) => ({
+        message: doc.data.message.trim(),
+        processed: true,
+      }),
+      {
+        batchSize: 500,
+        onProgress: (progress) => {
+          console.log(`Transform progress: ${progress.percentage}%`);
+        },
+      }
+    );
+
+  console.log(`Batch transform complete: ${batchResult.successCount} transformed`);
+}
+
+async function copyToExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 33: Copy & Move Documents ===");
+
+  // Copy documents to another collection
+  const copyResult = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .copyTo("archived_users");
+
+  console.log(`Copied ${copyResult.successCount} documents to archived_users`);
+  console.log("Copied IDs:", copyResult.copiedIds);
+
+  // Copy with data transformation
+  const publicResult = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .copyTo("public_profiles", {
+      transform: (doc) => ({
+        name: doc.data.name,
+        avatar: doc.data.avatar,
+        joinedAt: doc.data.createdAt,
+        // sensitive fields omitted
+      }),
+    });
+
+  console.log(`Created ${publicResult.successCount} public profiles`);
+
+  // Move documents (copy + delete source)
+  const moveResult = await updater
+    .collection("orders")
+    .where("status", "==", "completed")
+    .where("createdAt", "<", new Date("2024-01-01"))
+    .copyTo("order_archive", {
+      deleteSource: true,
+      onProgress: (progress) => {
+        console.log(`Moving: ${progress.percentage}%`);
+      },
+    });
+
+  console.log(`Moved ${moveResult.successCount} orders to archive`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1054,4 +1144,6 @@ Promise.all([
   bulkUpdateExample(),
   bulkCreateExample(),
   bulkDeleteExample(),
+  transformExample(),
+  copyToExample(),
 ]).catch(console.error);

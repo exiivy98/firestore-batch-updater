@@ -41,6 +41,11 @@ import type {
   BulkUpdateInput,
   BulkUpdateOptions,
   BulkUpdateResult,
+  TransformFn,
+  TransformOptions,
+  TransformResult,
+  CopyToOptions,
+  CopyToResult,
 } from "../types";
 
 import {
@@ -1090,6 +1095,307 @@ export class BatchUpdater {
     };
 
     // Write log file if enabled
+    if (logCollector && options.log) {
+      result.logFilePath = logCollector.finalize(options.log);
+    }
+
+    return result;
+  }
+
+  /**
+   * Transform matching documents using a custom function
+   * Reads each document, applies the transform function, and updates with the result
+   * @param transformFn - Function that receives { id, data } and returns update data, or null to skip
+   * @param options - Transform options (e.g., progress callback, log options, batchSize)
+   * @returns Transform result with success/failure/skipped counts and optional log file path
+   */
+  async transform(
+    transformFn: TransformFn,
+    options: TransformOptions = {}
+  ): Promise<TransformResult & { logFilePath?: string }> {
+    this.validateSetup();
+
+    if (typeof transformFn !== "function") {
+      throw new Error("Transform function is required");
+    }
+
+    // Initialize log collector if logging is enabled
+    const logCollector = options.log?.enabled
+      ? createLogCollector("update", this.collectionPath!, this.conditions)
+      : null;
+
+    let successCount = 0;
+    let failureCount = 0;
+    let skippedCount = 0;
+    let totalCount = 0;
+    const failedDocIds: string[] = [];
+
+    const processDocuments = async (
+      docs: QueryDocumentSnapshot<DocumentData>[],
+      processedSoFar: number,
+      grandTotal: number
+    ) => {
+      const bulkWriter = this.firestore.bulkWriter();
+      let processedCount = processedSoFar;
+
+      const docIdMap = new Map<string, string>();
+
+      bulkWriter.onWriteResult((ref) => {
+        successCount++;
+        processedCount++;
+
+        const docId = docIdMap.get(ref.path) || ref.id;
+        logCollector?.addEntry(docId, "success");
+
+        if (options.onProgress) {
+          const progress = calculateProgress(processedCount, grandTotal);
+          options.onProgress(progress);
+        }
+      });
+
+      bulkWriter.onWriteError((error) => {
+        failureCount++;
+        processedCount++;
+
+        const docId = error.documentRef?.id || "unknown";
+        failedDocIds.push(docId);
+        logCollector?.addEntry(docId, "failure", error.message);
+
+        if (options.onProgress) {
+          const progress = calculateProgress(processedCount, grandTotal);
+          options.onProgress(progress);
+        }
+
+        return false;
+      });
+
+      for (const doc of docs) {
+        const updateData = transformFn({ id: doc.id, data: doc.data() });
+
+        if (updateData === null) {
+          skippedCount++;
+          processedCount++;
+
+          if (options.onProgress) {
+            const progress = calculateProgress(processedCount, grandTotal);
+            options.onProgress(progress);
+          }
+          continue;
+        }
+
+        docIdMap.set(doc.ref.path, doc.id);
+        bulkWriter.update(doc.ref, updateData);
+      }
+
+      await bulkWriter.close();
+      return processedCount;
+    };
+
+    if (options.batchSize && options.batchSize > 0) {
+      const countSnapshot = await this.buildQuery().count().get();
+      totalCount = countSnapshot.data().count;
+
+      if (totalCount === 0) {
+        const result: TransformResult & { logFilePath?: string } = {
+          successCount: 0,
+          failureCount: 0,
+          skippedCount: 0,
+          totalCount: 0,
+        };
+        if (logCollector && options.log) {
+          result.logFilePath = logCollector.finalize(options.log);
+        }
+        return result;
+      }
+
+      let processedCount = 0;
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+
+      while (true) {
+        let paginatedQuery = this.buildQuery().limit(options.batchSize);
+        if (lastDoc) {
+          paginatedQuery = paginatedQuery.startAfter(lastDoc);
+        }
+
+        const snapshot = await paginatedQuery.get();
+        if (snapshot.empty) break;
+
+        processedCount = await processDocuments(
+          snapshot.docs,
+          processedCount,
+          totalCount
+        );
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.docs.length < options.batchSize) break;
+      }
+    } else {
+      const query = this.buildQuery();
+      const snapshot = await query.get();
+      totalCount = snapshot.size;
+
+      if (totalCount === 0) {
+        const result: TransformResult & { logFilePath?: string } = {
+          successCount: 0,
+          failureCount: 0,
+          skippedCount: 0,
+          totalCount: 0,
+        };
+        if (logCollector && options.log) {
+          result.logFilePath = logCollector.finalize(options.log);
+        }
+        return result;
+      }
+
+      await processDocuments(snapshot.docs, 0, totalCount);
+    }
+
+    const result: TransformResult & { logFilePath?: string } = {
+      successCount,
+      failureCount,
+      skippedCount,
+      totalCount,
+      failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
+    };
+
+    if (logCollector && options.log) {
+      result.logFilePath = logCollector.finalize(options.log);
+    }
+
+    return result;
+  }
+
+  /**
+   * Copy matching documents to another collection
+   * @param targetCollection - Target collection path to copy documents to
+   * @param options - Copy options (transform, deleteSource for move, progress callback)
+   * @returns Copy result with success/failure counts, copied IDs, and optional log file path
+   */
+  async copyTo(
+    targetCollection: string,
+    options: CopyToOptions = {}
+  ): Promise<CopyToResult & { logFilePath?: string }> {
+    this.validateSetup();
+
+    if (!targetCollection || typeof targetCollection !== "string") {
+      throw new Error("Target collection path is required");
+    }
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "copyTo() cannot be used with collectionGroup(). Use collection() with a specific path instead."
+      );
+    }
+
+    // Initialize log collector if logging is enabled
+    const logCollector = options.log?.enabled
+      ? createLogCollector("create", targetCollection)
+      : null;
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const totalCount = snapshot.size;
+
+    if (totalCount === 0) {
+      const result: CopyToResult & { logFilePath?: string } = {
+        successCount: 0,
+        failureCount: 0,
+        totalCount: 0,
+        copiedIds: [],
+      };
+      if (logCollector && options.log) {
+        result.logFilePath = logCollector.finalize(options.log);
+      }
+      return result;
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+    const copiedIds: string[] = [];
+    const failedDocIds: string[] = [];
+
+    const bulkWriter = this.firestore.bulkWriter();
+    const targetCol = this.firestore.collection(targetCollection);
+
+    let processedCount = 0;
+
+    const docIdMap = new Map<string, string>();
+
+    bulkWriter.onWriteResult((ref) => {
+      successCount++;
+      processedCount++;
+
+      const docId = docIdMap.get(ref.path) || ref.id;
+      copiedIds.push(docId);
+      logCollector?.addEntry(docId, "success");
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+    });
+
+    bulkWriter.onWriteError((error) => {
+      failureCount++;
+      processedCount++;
+
+      const docId = error.documentRef?.id || "unknown";
+      failedDocIds.push(docId);
+      logCollector?.addEntry(docId, "failure", error.message);
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+
+      return false;
+    });
+
+    for (const doc of snapshot.docs) {
+      let data = doc.data();
+
+      // Apply transform if provided
+      if (options.transform) {
+        const transformed = options.transform({ id: doc.id, data });
+        if (transformed === null) {
+          processedCount++;
+          if (options.onProgress) {
+            const progress = calculateProgress(processedCount, totalCount);
+            options.onProgress(progress);
+          }
+          continue;
+        }
+        data = transformed;
+      }
+
+      const targetRef = targetCol.doc(doc.id);
+      docIdMap.set(targetRef.path, doc.id);
+      bulkWriter.set(targetRef, data);
+    }
+
+    await bulkWriter.close();
+
+    // Delete source documents if deleteSource is true (move operation)
+    if (options.deleteSource && copiedIds.length > 0) {
+      const deleteBulkWriter = this.firestore.bulkWriter();
+      const sourceCol = this.firestore.collection(this.collectionPath!);
+
+      for (const id of copiedIds) {
+        deleteBulkWriter.delete(sourceCol.doc(id));
+      }
+
+      await deleteBulkWriter.close();
+    }
+
+    const result: CopyToResult & { logFilePath?: string } = {
+      successCount,
+      failureCount,
+      totalCount,
+      copiedIds,
+      failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
+    };
+
     if (logCollector && options.log) {
       result.logFilePath = logCollector.finalize(options.log);
     }

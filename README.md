@@ -22,6 +22,8 @@ English | [한국어](./README.ko.md)
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
+- Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
+- Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -110,6 +112,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `bulkCreate(docs, options?)` | Create multiple docs with different data | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
 | `bulkDelete(ids, options?)` | Delete multiple docs by ID | `BulkDeleteResult` |
+| `transform(fn, options?)` | Transform docs with custom function | `TransformResult` |
+| `copyTo(target, options?)` | Copy/move docs to another collection | `CopyToResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -162,6 +166,8 @@ All write operations support an optional `options` parameter:
 | `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
+| `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -595,6 +601,58 @@ const result2 = await updater.collection("logs").bulkDelete(expiredLogIds, {
     console.log(`${progress.percentage}% complete`);
   },
 });
+```
+
+### Transform Documents
+
+```typescript
+// Apply custom logic to each document
+const result = await updater
+  .collection("products")
+  .where("category", "==", "electronics")
+  .transform((doc) => ({
+    price: doc.data.price * 1.1, // 10% price increase
+    name: doc.data.name.toUpperCase(),
+  }));
+
+console.log(`Transformed ${result.successCount}, skipped ${result.skippedCount}`);
+
+// Skip documents conditionally (return null)
+const result2 = await updater
+  .collection("users")
+  .transform((doc) => {
+    if (doc.data.score < 50) return null; // Skip low scores
+    return { tier: "premium" };
+  });
+```
+
+### Copy & Move Documents
+
+```typescript
+// Copy documents to another collection
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .copyTo("archived_users");
+
+console.log(`Copied ${result.successCount} documents`);
+
+// Copy with data transformation (e.g., remove sensitive fields)
+await updater
+  .collection("users")
+  .copyTo("public_profiles", {
+    transform: (doc) => ({
+      name: doc.data.name,
+      avatar: doc.data.avatar,
+      // password, email omitted
+    }),
+  });
+
+// Move documents (copy + delete source)
+await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .copyTo("order_archive", { deleteSource: true });
 ```
 
 ### Dry Run Mode

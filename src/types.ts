@@ -423,3 +423,76 @@ export interface BulkUpdateResult {
   totalCount: number; // Total number of processed documents
   failedDocIds?: string[]; // Array of failed document IDs (if any)
 }
+
+/**
+ * Transform function that receives document data and returns the update data
+ */
+export type TransformFn = (doc: {
+  id: string;
+  data: Record<string, any>;
+}) => Record<string, any> | null;
+
+/**
+ * Options for transform operation
+ */
+export interface TransformOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+  /**
+   * Batch size for pagination (optional)
+   */
+  batchSize?: number;
+}
+
+/**
+ * Result of transform operation
+ */
+export interface TransformResult {
+  successCount: number; // Number of successfully transformed documents
+  failureCount: number; // Number of failed documents
+  skippedCount: number; // Number of documents skipped (transform returned null)
+  totalCount: number; // Total number of processed documents
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
+ * Options for copyTo operation
+ */
+export interface CopyToOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+  /**
+   * Optional transform function to modify data before copying
+   */
+  transform?: TransformFn;
+  /**
+   * Whether to delete source documents after copying (move operation)
+   * @default false
+   */
+  deleteSource?: boolean;
+}
+
+/**
+ * Result of copyTo operation
+ */
+export interface CopyToResult {
+  successCount: number; // Number of successfully copied documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of processed documents
+  copiedIds: string[]; // Array of copied document IDs
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}

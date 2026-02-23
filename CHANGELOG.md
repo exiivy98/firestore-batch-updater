@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-02-23
+
+### Added
+
+- **`transform()` method** - Transform matching documents using a custom function
+  - Reads each document, applies a user-defined function, and updates with the result
+  - Return `null` from the function to skip a document
+  - Returns `TransformResult` with success/failure/skipped counts
+  - Supports `batchSize` for large collections
+- **`copyTo()` method** - Copy matching documents to another collection
+  - Preserves document IDs in the target collection
+  - Optional `transform` to modify data during copy
+  - Optional `deleteSource: true` for move operations (copy + delete source)
+  - Works with `where()` to copy only filtered documents
+  - Returns `CopyToResult` with success/failure counts and copied IDs
+
+### Types
+
+- Added `TransformFn` type
+- Added `TransformOptions` / `TransformResult` types
+- Added `CopyToOptions` / `CopyToResult` types
+
 ## [1.7.0] - 2025-02-17
 
 ### Added

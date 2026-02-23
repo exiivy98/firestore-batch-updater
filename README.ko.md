@@ -22,6 +22,8 @@
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
+- 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
+- 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -110,6 +112,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `bulkCreate(docs, options?)` | 여러 문서를 각기 다른 데이터로 생성 | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
 | `bulkDelete(ids, options?)` | ID 배열로 여러 문서 삭제 | `BulkDeleteResult` |
+| `transform(fn, options?)` | 커스텀 함수로 문서 변환 | `TransformResult` |
+| `copyTo(target, options?)` | 다른 컬렉션으로 문서 복사/이동 | `CopyToResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -162,6 +166,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
+| `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -607,6 +613,58 @@ const result2 = await updater.collection("logs").bulkDelete(expiredLogIds, {
     console.log(`${progress.percentage}% 완료`);
   },
 });
+```
+
+### 문서 변환
+
+```typescript
+// 각 문서에 커스텀 로직 적용
+const result = await updater
+  .collection("products")
+  .where("category", "==", "electronics")
+  .transform((doc) => ({
+    price: doc.data.price * 1.1, // 10% 가격 인상
+    name: doc.data.name.toUpperCase(),
+  }));
+
+console.log(`변환: ${result.successCount}, 건너뜀: ${result.skippedCount}`);
+
+// 조건부 건너뛰기 (null 반환 시 스킵)
+const result2 = await updater
+  .collection("users")
+  .transform((doc) => {
+    if (doc.data.score < 50) return null; // 낮은 점수 건너뛰기
+    return { tier: "premium" };
+  });
+```
+
+### 문서 복사 & 이동
+
+```typescript
+// 다른 컬렉션으로 문서 복사
+const result = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .copyTo("archived_users");
+
+console.log(`${result.successCount}개 문서 복사 완료`);
+
+// 데이터 변환하며 복사 (민감 정보 제거 등)
+await updater
+  .collection("users")
+  .copyTo("public_profiles", {
+    transform: (doc) => ({
+      name: doc.data.name,
+      avatar: doc.data.avatar,
+      // password, email 제외
+    }),
+  });
+
+// 문서 이동 (복사 + 원본 삭제)
+await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .copyTo("order_archive", { deleteSource: true });
 ```
 
 ### Dry Run 모드

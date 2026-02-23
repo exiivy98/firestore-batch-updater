@@ -47,6 +47,11 @@ export type {
   BulkUpdateInput,
   BulkUpdateOptions,
   BulkUpdateResult,
+  TransformFn,
+  TransformOptions,
+  TransformResult,
+  CopyToOptions,
+  CopyToResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)
