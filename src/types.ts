@@ -496,3 +496,21 @@ export interface CopyToResult {
   copiedIds: string[]; // Array of copied document IDs
   failedDocIds?: string[]; // Array of failed document IDs (if any)
 }
+
+/**
+ * Options for toJSON operation
+ */
+export interface ToJSONOptions {
+  /**
+   * Whether to pretty-print the JSON output (default: true)
+   */
+  pretty?: boolean;
+}
+
+/**
+ * Result of toJSON operation
+ */
+export interface ToJSONResult {
+  filePath: string; // Path to the generated JSON file
+  documentCount: number; // Number of documents exported
+}

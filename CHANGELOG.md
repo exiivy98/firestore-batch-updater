@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-03-02
+
+### Added
+
+- **`distinct()` method** - Get unique values of a specific field from matching documents
+  - Returns an array of unique values (strings, numbers, etc.)
+  - Works with `where()` to get distinct values from filtered documents
+  - Supports nested fields with dot notation
+- **`toJSON()` method** - Export matching documents to a JSON file
+  - Outputs `[{ id, data }]` format
+  - Works with `where()` and `select()` for filtered/partial exports
+  - Supports pretty-print (default) or compact format
+  - Automatically creates directories if needed
+
+### Types
+
+- Added `ToJSONOptions` / `ToJSONResult` types
+
 ## [1.8.0] - 2025-02-23
 
 ### Added

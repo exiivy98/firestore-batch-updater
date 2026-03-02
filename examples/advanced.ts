@@ -1117,6 +1117,50 @@ async function copyToExample() {
   console.log(`Moved ${moveResult.successCount} orders to archive`);
 }
 
+async function distinctExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 34: Distinct Values ===");
+
+  // Get unique statuses
+  const statuses = await updater.collection("users").distinct("status");
+  console.log("Unique statuses:", statuses);
+
+  // Get unique tiers for active users only
+  const activeTiers = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .distinct("tier");
+  console.log("Active user tiers:", activeTiers);
+
+  // Get unique categories
+  const categories = await updater.collection("products").distinct("category");
+  console.log("Product categories:", categories);
+}
+
+async function toJSONExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 35: Export to JSON ===");
+
+  // Export all active users
+  const result = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .select("name", "email", "tier")
+    .toJSON("./exports/active-users.json");
+
+  console.log(`Exported ${result.documentCount} users to ${result.filePath}`);
+
+  // Export with compact format
+  const logsResult = await updater
+    .collection("logs")
+    .where("level", "==", "error")
+    .toJSON("./exports/error-logs.json", { pretty: false });
+
+  console.log(`Exported ${logsResult.documentCount} error logs`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1146,4 +1190,6 @@ Promise.all([
   bulkDeleteExample(),
   transformExample(),
   copyToExample(),
+  distinctExample(),
+  toJSONExample(),
 ]).catch(console.error);

@@ -52,6 +52,8 @@ export type {
   TransformResult,
   CopyToOptions,
   CopyToResult,
+  ToJSONOptions,
+  ToJSONResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)

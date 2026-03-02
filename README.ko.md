@@ -24,6 +24,8 @@
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
+- 고유값 조회 - `distinct()`로 특정 필드의 중복 없는 값 목록 조회
+- JSON 내보내기 - `toJSON()`으로 쿼리 결과를 JSON 파일로 저장
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -114,6 +116,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `bulkDelete(ids, options?)` | ID 배열로 여러 문서 삭제 | `BulkDeleteResult` |
 | `transform(fn, options?)` | 커스텀 함수로 문서 변환 | `TransformResult` |
 | `copyTo(target, options?)` | 다른 컬렉션으로 문서 복사/이동 | `CopyToResult` |
+| `distinct(field)` | 특정 필드의 고유값 조회 | `any[]` |
+| `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -168,6 +172,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `ToJSONResult` | `filePath`, `documentCount` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -665,6 +670,39 @@ await updater
   .collection("orders")
   .where("status", "==", "completed")
   .copyTo("order_archive", { deleteSource: true });
+```
+
+### 고유값 조회
+
+```typescript
+// 특정 필드의 고유값 목록 조회
+const statuses = await updater.collection("users").distinct("status");
+console.log(statuses); // ["active", "inactive", "banned"]
+
+// where 필터와 함께 사용
+const activeTiers = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .distinct("tier");
+console.log(activeTiers); // ["free", "premium", "enterprise"]
+```
+
+### JSON 내보내기
+
+```typescript
+// 쿼리 결과를 JSON 파일로 저장
+const result = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .select("name", "email")
+  .toJSON("./exports/active-users.json");
+
+console.log(`${result.documentCount}개 문서를 ${result.filePath}에 저장`);
+
+// 압축 형식 (들여쓰기 없이)
+await updater
+  .collection("logs")
+  .toJSON("./exports/logs.json", { pretty: false });
 ```
 
 ### Dry Run 모드

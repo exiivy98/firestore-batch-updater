@@ -24,6 +24,8 @@ English | [한국어](./README.ko.md)
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
+- Distinct values - Use `distinct()` to get unique field values from matching documents
+- JSON export - Use `toJSON()` to export query results to a JSON file
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -114,6 +116,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `bulkDelete(ids, options?)` | Delete multiple docs by ID | `BulkDeleteResult` |
 | `transform(fn, options?)` | Transform docs with custom function | `TransformResult` |
 | `copyTo(target, options?)` | Copy/move docs to another collection | `CopyToResult` |
+| `distinct(field)` | Get unique values of a field | `any[]` |
+| `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -168,6 +172,7 @@ All write operations support an optional `options` parameter:
 | `BulkDeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
+| `ToJSONResult` | `filePath`, `documentCount` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -653,6 +658,39 @@ await updater
   .collection("orders")
   .where("status", "==", "completed")
   .copyTo("order_archive", { deleteSource: true });
+```
+
+### Distinct Values
+
+```typescript
+// Get unique values of a field
+const statuses = await updater.collection("users").distinct("status");
+console.log(statuses); // ["active", "inactive", "banned"]
+
+// With where filter
+const activeTiers = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .distinct("tier");
+console.log(activeTiers); // ["free", "premium", "enterprise"]
+```
+
+### Export to JSON
+
+```typescript
+// Export query results to a JSON file
+const result = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .select("name", "email")
+  .toJSON("./exports/active-users.json");
+
+console.log(`Exported ${result.documentCount} documents to ${result.filePath}`);
+
+// Compact format (no pretty-print)
+await updater
+  .collection("logs")
+  .toJSON("./exports/logs.json", { pretty: false });
 ```
 
 ### Dry Run Mode

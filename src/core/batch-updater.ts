@@ -46,6 +46,8 @@ import type {
   TransformResult,
   CopyToOptions,
   CopyToResult,
+  ToJSONOptions,
+  ToJSONResult,
 } from "../types";
 
 import {
@@ -1401,6 +1403,83 @@ export class BatchUpdater {
     }
 
     return result;
+  }
+
+  /**
+   * Get distinct (unique) values of a specific field from matching documents
+   * @param field - Field path to get unique values for
+   * @returns Array of unique values
+   */
+  async distinct(field: string): Promise<any[]> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field path is required");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const valueSet = new Set<string>();
+    const values: any[] = [];
+
+    for (const doc of snapshot.docs) {
+      const value = this.getNestedValue(doc.data(), field);
+      if (value === undefined || value === null) continue;
+
+      const key = JSON.stringify(value);
+      if (!valueSet.has(key)) {
+        valueSet.add(key);
+        values.push(value);
+      }
+    }
+
+    return values;
+  }
+
+  /**
+   * Export matching documents to a JSON file
+   * @param filePath - Path for the output JSON file
+   * @param options - Export options (pretty print)
+   * @returns Result with file path and document count
+   */
+  async toJSON(
+    filePath: string,
+    options: ToJSONOptions = {}
+  ): Promise<ToJSONResult> {
+    this.validateSetup();
+
+    if (!filePath || typeof filePath !== "string") {
+      throw new Error("File path is required");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const documents = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    }));
+
+    const pretty = options.pretty !== false; // default true
+    const json = pretty
+      ? JSON.stringify(documents, null, 2)
+      : JSON.stringify(documents);
+
+    // Ensure directory exists
+    const fs = await import("fs");
+    const path = await import("path");
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, json, "utf-8");
+
+    return {
+      filePath,
+      documentCount: documents.length,
+    };
   }
 
   /**
