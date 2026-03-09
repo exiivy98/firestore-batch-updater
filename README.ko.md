@@ -25,7 +25,8 @@
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
 - 고유값 조회 - `distinct()`로 특정 필드의 중복 없는 값 목록 조회
-- JSON 내보내기 - `toJSON()`으로 쿼리 결과를 JSON 파일로 저장
+- JSON 내보내기/가져오기 - `toJSON()` / `fromJSON()`으로 문서 JSON 파일 내보내기/가져오기
+- 그룹별 개수 조회 - `countBy()`로 특정 필드 값별 문서 수 집계
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -118,6 +119,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `copyTo(target, options?)` | 다른 컬렉션으로 문서 복사/이동 | `CopyToResult` |
 | `distinct(field)` | 특정 필드의 고유값 조회 | `any[]` |
 | `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
+| `fromJSON(path, options?)` | JSON 파일에서 문서 가져오기 | `FromJSONResult` |
+| `countBy(field)` | 필드 값별 문서 수 집계 | `CountByResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -173,6 +176,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `ToJSONResult` | `filePath`, `documentCount` |
+| `FromJSONResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
+| `CountByResult` | `{ [value]: number }` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -703,6 +708,46 @@ console.log(`${result.documentCount}개 문서를 ${result.filePath}에 저장`)
 await updater
   .collection("logs")
   .toJSON("./exports/logs.json", { pretty: false });
+```
+
+### 필드 값별 개수 조회
+
+```typescript
+// 특정 필드 값으로 문서 개수 그룹화
+const statusCounts = await updater.collection("users").countBy("status");
+console.log(statusCounts); // { active: 150, inactive: 30, banned: 5 }
+
+// where 필터와 함께 사용
+const roleCounts = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .countBy("role");
+console.log(roleCounts); // { admin: 5, user: 120, moderator: 25 }
+
+// 중첩 필드 지원
+const countryCounts = await updater.collection("users").countBy("address.country");
+console.log(countryCounts); // { US: 80, KR: 45, JP: 25 }
+```
+
+### JSON 가져오기
+
+```typescript
+// JSON 파일에서 문서 가져오기 (toJSON 형식)
+const result = await updater
+  .collection("users")
+  .fromJSON("./exports/active-users.json");
+
+console.log(`${result.successCount}개 문서 가져오기 완료`);
+console.log("생성된 ID:", result.createdIds);
+
+// 자동 생성 ID로 가져오기 (JSON의 ID 무시)
+const result2 = await updater
+  .collection("users_copy")
+  .fromJSON("./exports/users.json", { useIds: false });
+
+// 라운드 트립: 내보내기 → 다른 컬렉션으로 가져오기
+await updater.collection("users").toJSON("./backup.json");
+await updater.collection("users_backup").fromJSON("./backup.json");
 ```
 
 ### Dry Run 모드

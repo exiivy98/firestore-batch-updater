@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-03-09
+
+### Added
+
+- **`countBy()` method** - Count documents grouped by a specific field value
+  - Returns an object mapping field values to their document counts
+  - Works with `where()` to count from filtered documents
+  - Supports nested fields with dot notation
+- **`fromJSON()` method** - Import documents from a JSON file into Firestore
+  - Accepts `[{ id, data }]` format (compatible with `toJSON()` output)
+  - Supports round-trip with `toJSON()` → `fromJSON()`
+  - Option to use IDs from JSON or auto-generate new IDs (`useIds` option)
+  - Progress tracking and log file support
+
+### Types
+
+- Added `CountByResult` / `FromJSONOptions` / `FromJSONResult` types
+
 ## [1.9.0] - 2025-03-02
 
 ### Added

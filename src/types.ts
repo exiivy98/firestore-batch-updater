@@ -498,6 +498,44 @@ export interface CopyToResult {
 }
 
 /**
+ * Result of countBy operation
+ */
+export interface CountByResult {
+  [value: string]: number; // Field value → document count
+}
+
+/**
+ * Options for fromJSON operation
+ */
+export interface FromJSONOptions {
+  /**
+   * Callback function for progress updates
+   * @param progress - Current progress information
+   */
+  onProgress?: (progress: ProgressInfo) => void;
+  /**
+   * Log file generation options
+   */
+  log?: LogOptions;
+  /**
+   * Whether to use the "id" field from JSON as the document ID (default: true)
+   * If false, auto-generates document IDs
+   */
+  useIds?: boolean;
+}
+
+/**
+ * Result of fromJSON operation
+ */
+export interface FromJSONResult {
+  successCount: number; // Number of successfully created documents
+  failureCount: number; // Number of failed documents
+  totalCount: number; // Total number of documents in the JSON file
+  createdIds: string[]; // Array of created document IDs
+  failedDocIds?: string[]; // Array of failed document IDs (if any)
+}
+
+/**
  * Options for toJSON operation
  */
 export interface ToJSONOptions {

@@ -54,6 +54,9 @@ export type {
   CopyToResult,
   ToJSONOptions,
   ToJSONResult,
+  CountByResult,
+  FromJSONOptions,
+  FromJSONResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)

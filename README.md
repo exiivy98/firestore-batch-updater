@@ -25,7 +25,8 @@ English | [한국어](./README.ko.md)
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
 - Distinct values - Use `distinct()` to get unique field values from matching documents
-- JSON export - Use `toJSON()` to export query results to a JSON file
+- JSON export/import - Use `toJSON()` / `fromJSON()` to export/import documents as JSON
+- Group counting - Use `countBy()` to count documents grouped by field value
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -118,6 +119,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `copyTo(target, options?)` | Copy/move docs to another collection | `CopyToResult` |
 | `distinct(field)` | Get unique values of a field | `any[]` |
 | `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
+| `fromJSON(path, options?)` | Import documents from JSON file | `FromJSONResult` |
+| `countBy(field)` | Count documents grouped by field value | `CountByResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -173,6 +176,8 @@ All write operations support an optional `options` parameter:
 | `TransformResult` | `successCount`, `failureCount`, `skippedCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `CopyToResult` | `successCount`, `failureCount`, `totalCount`, `copiedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `ToJSONResult` | `filePath`, `documentCount` |
+| `FromJSONResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
+| `CountByResult` | `{ [value]: number }` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -691,6 +696,46 @@ console.log(`Exported ${result.documentCount} documents to ${result.filePath}`);
 await updater
   .collection("logs")
   .toJSON("./exports/logs.json", { pretty: false });
+```
+
+### Count by Field Value
+
+```typescript
+// Count documents grouped by a field
+const statusCounts = await updater.collection("users").countBy("status");
+console.log(statusCounts); // { active: 150, inactive: 30, banned: 5 }
+
+// With where filter
+const roleCounts = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .countBy("role");
+console.log(roleCounts); // { admin: 5, user: 120, moderator: 25 }
+
+// Nested fields
+const countryCounts = await updater.collection("users").countBy("address.country");
+console.log(countryCounts); // { US: 80, KR: 45, JP: 25 }
+```
+
+### Import from JSON
+
+```typescript
+// Import documents from a JSON file (toJSON format)
+const result = await updater
+  .collection("users")
+  .fromJSON("./exports/active-users.json");
+
+console.log(`Imported ${result.successCount} documents`);
+console.log("Created IDs:", result.createdIds);
+
+// Import with auto-generated IDs (ignore IDs in JSON)
+const result2 = await updater
+  .collection("users_copy")
+  .fromJSON("./exports/users.json", { useIds: false });
+
+// Round-trip: export → import to another collection
+await updater.collection("users").toJSON("./backup.json");
+await updater.collection("users_backup").fromJSON("./backup.json");
 ```
 
 ### Dry Run Mode

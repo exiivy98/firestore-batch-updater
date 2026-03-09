@@ -48,6 +48,9 @@ import type {
   CopyToResult,
   ToJSONOptions,
   ToJSONResult,
+  CountByResult,
+  FromJSONOptions,
+  FromJSONResult,
 } from "../types";
 
 import {
@@ -1480,6 +1483,145 @@ export class BatchUpdater {
       filePath,
       documentCount: documents.length,
     };
+  }
+
+  /**
+   * Count documents grouped by a specific field value
+   * @param field - Field path to group by
+   * @returns Object mapping field values to their document counts
+   */
+  async countBy(field: string): Promise<CountByResult> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field path is required");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const counts: CountByResult = {};
+
+    for (const doc of snapshot.docs) {
+      const value = this.getNestedValue(doc.data(), field);
+      if (value === undefined || value === null) continue;
+
+      const key = String(value);
+      counts[key] = (counts[key] || 0) + 1;
+    }
+
+    return counts;
+  }
+
+  /**
+   * Import documents from a JSON file into Firestore
+   * @param filePath - Path to the JSON file to import
+   * @param options - Import options (progress callback, log options, useIds)
+   * @returns Import result with success/failure counts, created IDs, and optional log file path
+   */
+  async fromJSON(
+    filePath: string,
+    options: FromJSONOptions = {}
+  ): Promise<FromJSONResult & { logFilePath?: string }> {
+    this.validateSetup();
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "fromJSON() cannot be used with collectionGroup(). Use collection() with a specific path instead."
+      );
+    }
+
+    if (!filePath || typeof filePath !== "string") {
+      throw new Error("File path is required");
+    }
+
+    const fs = await import("fs");
+
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    let documents: Array<{ id?: string; data: Record<string, any> }>;
+
+    try {
+      documents = JSON.parse(fileContent);
+    } catch {
+      throw new Error("Invalid JSON file");
+    }
+
+    if (!Array.isArray(documents) || documents.length === 0) {
+      throw new Error("JSON file must contain a non-empty array of documents");
+    }
+
+    const useIds = options.useIds !== false; // default true
+    const totalCount = documents.length;
+    let successCount = 0;
+    let failureCount = 0;
+    const createdIds: string[] = [];
+    const failedDocIds: string[] = [];
+
+    // Initialize log collector if logging is enabled
+    const logCollector = options.log?.enabled
+      ? createLogCollector("create", this.collectionPath!)
+      : null;
+
+    const bulkWriter = this.firestore.bulkWriter();
+    const collection = this.firestore.collection(this.collectionPath!);
+
+    let processedCount = 0;
+
+    bulkWriter.onWriteResult((ref) => {
+      successCount++;
+      processedCount++;
+      createdIds.push(ref.id);
+      logCollector?.addEntry(ref.id, "success");
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+    });
+
+    bulkWriter.onWriteError((error) => {
+      failureCount++;
+      processedCount++;
+
+      const docId = error.documentRef?.id || "unknown";
+      failedDocIds.push(docId);
+      logCollector?.addEntry(docId, "failure", error.message);
+
+      if (options.onProgress) {
+        const progress = calculateProgress(processedCount, totalCount);
+        options.onProgress(progress);
+      }
+
+      return false;
+    });
+
+    for (const doc of documents) {
+      const docData = doc.data || doc;
+      const docRef =
+        useIds && doc.id ? collection.doc(doc.id) : collection.doc();
+      bulkWriter.set(docRef, docData);
+    }
+
+    await bulkWriter.close();
+
+    const result: FromJSONResult & { logFilePath?: string } = {
+      successCount,
+      failureCount,
+      totalCount,
+      createdIds,
+      failedDocIds: failedDocIds.length > 0 ? failedDocIds : undefined,
+    };
+
+    // Write log file if enabled
+    if (logCollector && options.log) {
+      result.logFilePath = logCollector.finalize(options.log);
+    }
+
+    return result;
   }
 
   /**

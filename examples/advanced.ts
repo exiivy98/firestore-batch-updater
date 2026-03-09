@@ -1161,6 +1161,61 @@ async function toJSONExample() {
   console.log(`Exported ${logsResult.documentCount} error logs`);
 }
 
+async function countByExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 36: Count by Field Value ===");
+
+  // Count documents grouped by status
+  const statusCounts = await updater.collection("users").countBy("status");
+  console.log("Status counts:", statusCounts);
+  // { active: 150, inactive: 30, banned: 5 }
+
+  // Count with where filter
+  const roleCounts = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .countBy("role");
+  console.log("Role counts (active only):", roleCounts);
+  // { admin: 5, user: 120, moderator: 25 }
+
+  // Count by nested field
+  const countryCounts = await updater
+    .collection("users")
+    .countBy("address.country");
+  console.log("Country counts:", countryCounts);
+}
+
+async function fromJSONExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 37: Import from JSON ===");
+
+  // Export users to JSON
+  const exportResult = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .select("name", "email")
+    .toJSON("./exports/active-users.json");
+
+  console.log(`Exported ${exportResult.documentCount} users`);
+
+  // Import into another collection (round-trip)
+  const importResult = await updater
+    .collection("users_backup")
+    .fromJSON("./exports/active-users.json");
+
+  console.log(`Imported ${importResult.successCount} users`);
+  console.log("Created IDs:", importResult.createdIds);
+
+  // Import with auto-generated IDs
+  const autoResult = await updater
+    .collection("users_copy")
+    .fromJSON("./exports/active-users.json", { useIds: false });
+
+  console.log(`Imported with new IDs: ${autoResult.createdIds}`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1192,4 +1247,6 @@ Promise.all([
   copyToExample(),
   distinctExample(),
   toJSONExample(),
+  countByExample(),
+  fromJSONExample(),
 ]).catch(console.error);
