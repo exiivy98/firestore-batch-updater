@@ -205,6 +205,16 @@ export class BatchUpdater {
   }
 
   /**
+   * Check if no documents match the query conditions
+   * Opposite of exists() - returns true when the collection/query has no matching documents
+   * @returns true if no documents match, false otherwise
+   */
+  async isEmpty(): Promise<boolean> {
+    const result = await this.exists();
+    return !result;
+  }
+
+  /**
    * Get all documents matching the query conditions
    * @returns Array of documents with id and data
    */

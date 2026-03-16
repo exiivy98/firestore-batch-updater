@@ -17,6 +17,7 @@
 - 필드 선택 - `select()`로 필요한 필드만 로드 (메모리 및 비용 절약)
 - 단일 문서 작업 - `findOne()`, `createOne()`, `updateOne()`, `deleteOne()`으로 효율적인 단일 문서 처리
 - 존재 여부 확인 - `exists()`로 매칭 문서 존재 여부 빠르게 확인
+- 비어있는지 확인 - `isEmpty()`로 매칭 문서가 없는지 확인 (`exists()`의 반대)
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
@@ -99,6 +100,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `select(...fields)` | 특정 필드만 조회 (체이닝 가능) | `this` |
 | `count()` | 매칭되는 문서 개수 조회 | `CountResult` |
 | `exists()` | 매칭되는 문서 존재 여부 확인 | `boolean` |
+| `isEmpty()` | 매칭되는 문서가 없는지 확인 | `boolean` |
 | `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
 | `getOne(id)` | ID로 문서 직접 조회 | `{ id, data } \| null` |
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |

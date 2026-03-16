@@ -18,6 +18,7 @@
  * - Select specific fields with select()
  * - Find single document with findOne()
  * - Check document existence with exists()
+ * - Check if collection is empty with isEmpty()
  * - Get all matching documents with getAll()
  * - Update single document with updateOne()
  * - Delete single document with deleteOne()
@@ -716,6 +717,52 @@ async function existsExample() {
   console.log(`Active users exist: ${hasActiveUsers}`);
 }
 
+async function isEmptyExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 38: Check if Collection is Empty ===");
+
+  // Check if there are no pending orders
+  const noPending = await updater
+    .collection("orders")
+    .where("status", "==", "pending")
+    .isEmpty();
+
+  console.log(`No pending orders: ${noPending}`);
+
+  if (noPending) {
+    console.log("All caught up - no pending orders!");
+  }
+
+  // Guard clause pattern: create default admin if none exist
+  const noAdmins = await updater
+    .collection("users")
+    .where("role", "==", "admin")
+    .isEmpty();
+
+  if (noAdmins) {
+    console.log("No admin users found - creating default admin");
+    await updater
+      .collection("users")
+      .createOne({ role: "admin", name: "Default Admin" });
+  }
+
+  // Check before skipping expensive operations
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const noOldLogs = await updater
+    .collection("logs")
+    .where("createdAt", "<", thirtyDaysAgo)
+    .isEmpty();
+
+  if (noOldLogs) {
+    console.log("No old logs to clean up - skipping");
+  } else {
+    console.log("Old logs found - cleanup needed");
+  }
+}
+
 async function getAllExample() {
   const updater = new BatchUpdater(firestore);
 
@@ -1249,4 +1296,5 @@ Promise.all([
   toJSONExample(),
   countByExample(),
   fromJSONExample(),
+  isEmptyExample(),
 ]).catch(console.error);

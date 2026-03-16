@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-03-16
+
+### Added
+
+- **`isEmpty()` method** - Check if no documents match the query conditions
+  - Opposite of `exists()` - returns `true` when the collection/query has no matching documents
+  - Uses efficient count query internally (same as `exists()`)
+  - Useful for guard clauses and empty state checks
+
 ## [1.10.0] - 2026-03-09
 
 ### Added

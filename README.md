@@ -17,6 +17,7 @@ English | [한국어](./README.ko.md)
 - Field selection - Use `select()` to load only needed fields (saves memory and costs)
 - Single document operations - Use `findOne()`, `createOne()`, `updateOne()`, `deleteOne()` for efficient single-doc ops
 - Existence check - Use `exists()` to quickly check if matching documents exist
+- Empty check - Use `isEmpty()` to check if no matching documents exist (opposite of `exists()`)
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
@@ -99,6 +100,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `select(...fields)` | Select specific fields to retrieve (chainable) | `this` |
 | `count()` | Count matching documents | `CountResult` |
 | `exists()` | Check if matching documents exist | `boolean` |
+| `isEmpty()` | Check if no matching documents exist | `boolean` |
 | `findOne()` | Find first matching document | `{ id, data } \| null` |
 | `getOne(id)` | Get document by ID directly | `{ id, data } \| null` |
 | `getAll()` | Get all matching documents | `{ id, data }[]` |
@@ -422,6 +424,31 @@ const hasOldLogs = await updater
 
 if (hasOldLogs) {
   // Proceed with cleanup
+}
+```
+
+### Check if Collection is Empty
+
+```typescript
+// Check if there are no pending orders
+const noPending = await updater
+  .collection("orders")
+  .where("status", "==", "pending")
+  .isEmpty();
+
+if (noPending) {
+  console.log("No pending orders - all caught up!");
+}
+
+// Opposite of exists() - useful for guard clauses
+const noAdmins = await updater
+  .collection("users")
+  .where("role", "==", "admin")
+  .isEmpty();
+
+if (noAdmins) {
+  console.log("Warning: No admin users found - creating default admin");
+  await updater.collection("users").createOne({ role: "admin", name: "Default Admin" });
 }
 ```
 
