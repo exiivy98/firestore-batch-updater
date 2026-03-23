@@ -399,6 +399,46 @@ export class BatchUpdater {
   }
 
   /**
+   * Get the sum of a numeric field from matching documents
+   * Convenience wrapper around aggregate() for simple sum queries
+   * @param field - Field path to sum
+   * @returns Sum of the field values, or null if no documents match
+   */
+  async sum(field: string): Promise<number | null> {
+    this.validateSetup();
+
+    if (!field) {
+      throw new Error("Field is required for sum operation");
+    }
+
+    const result = await this.aggregate({
+      _sum: { op: "sum", field },
+    });
+
+    return result._sum;
+  }
+
+  /**
+   * Get the average of a numeric field from matching documents
+   * Convenience wrapper around aggregate() for simple average queries
+   * @param field - Field path to average
+   * @returns Average of the field values, or null if no documents match
+   */
+  async avg(field: string): Promise<number | null> {
+    this.validateSetup();
+
+    if (!field) {
+      throw new Error("Field is required for average operation");
+    }
+
+    const result = await this.aggregate({
+      _avg: { op: "average", field },
+    });
+
+    return result._avg;
+  }
+
+  /**
    * Get documents with cursor-based pagination
    * @param options - Pagination options (pageSize, startAfter cursor)
    * @returns Page of documents with cursor for next page

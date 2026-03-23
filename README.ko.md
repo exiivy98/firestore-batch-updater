@@ -20,6 +20,7 @@
 - 비어있는지 확인 - `isEmpty()`로 매칭 문서가 없는지 확인 (`exists()`의 반대)
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
+- 간편 집계 - `sum()`과 `avg()`로 단일 필드 간편 집계
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
@@ -113,6 +114,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `delete(options?)` | 매칭되는 문서 삭제 | `DeleteResult` |
 | `deleteOne()` | 첫 번째 매칭 문서 삭제 | `{ success, id }` |
 | `aggregate(spec)` | sum/average/count 집계 쿼리 | `AggregateResult` |
+| `sum(field)` | 숫자 필드 합계 조회 | `number \| null` |
+| `avg(field)` | 숫자 필드 평균 조회 | `number \| null` |
 | `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
 | `bulkCreate(docs, options?)` | 여러 문서를 각기 다른 데이터로 생성 | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
@@ -509,6 +512,30 @@ const stats = await updater
 console.log(`총액: ${stats.totalAmount}원`);
 console.log(`평균: ${stats.avgAmount}원`);
 console.log(`주문 수: ${stats.orderCount}건`);
+```
+
+### 간편 합계 & 평균
+
+```typescript
+// 필드 합계를 바로 조회 (aggregate spec 불필요)
+const totalRevenue = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .sum("amount");
+
+console.log(`총 매출: ${totalRevenue}원`);
+
+// 필드 평균을 바로 조회
+const avgScore = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .avg("score");
+
+console.log(`평균 점수: ${avgScore}`);
+
+// aggregate()와 동일하지만 단일 필드 조회 시 더 간편
+// aggregate({ total: { op: "sum", field: "amount" } }) → sum("amount")
+// aggregate({ avg: { op: "average", field: "score" } }) → avg("score")
 ```
 
 ### 커서 기반 페이지네이션

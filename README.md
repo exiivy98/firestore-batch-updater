@@ -20,6 +20,7 @@ English | [한국어](./README.ko.md)
 - Empty check - Use `isEmpty()` to check if no matching documents exist (opposite of `exists()`)
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
+- Quick aggregation - Use `sum()` and `avg()` for simple single-field aggregation
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
@@ -113,6 +114,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `delete(options?)` | Delete matching documents | `DeleteResult` |
 | `deleteOne()` | Delete first matching document | `{ success, id }` |
 | `aggregate(spec)` | Run sum/average/count queries | `AggregateResult` |
+| `sum(field)` | Get sum of a numeric field | `number \| null` |
+| `avg(field)` | Get average of a numeric field | `number \| null` |
 | `paginate(options)` | Cursor-based pagination | `PaginateResult` |
 | `bulkCreate(docs, options?)` | Create multiple docs with different data | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
@@ -533,6 +536,30 @@ const stats = await updater
 console.log(`Total: $${stats.totalAmount}`);
 console.log(`Average: $${stats.avgAmount}`);
 console.log(`Orders: ${stats.orderCount}`);
+```
+
+### Quick Sum & Average
+
+```typescript
+// Get sum of a field directly (no need for aggregate spec)
+const totalRevenue = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .sum("amount");
+
+console.log(`Total revenue: $${totalRevenue}`);
+
+// Get average of a field directly
+const avgScore = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .avg("score");
+
+console.log(`Average score: ${avgScore}`);
+
+// Equivalent to aggregate(), but simpler for single-field queries
+// aggregate({ total: { op: "sum", field: "amount" } }) → sum("amount")
+// aggregate({ avg: { op: "average", field: "score" } }) → avg("score")
 ```
 
 ### Cursor-Based Pagination

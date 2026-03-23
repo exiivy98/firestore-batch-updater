@@ -24,6 +24,8 @@
  * - Delete single document with deleteOne()
  * - Create single document with createOne()
  * - Aggregate queries with aggregate()
+ * - Quick sum with sum()
+ * - Quick average with avg()
  * - Cursor-based pagination with paginate()
  */
 
@@ -763,6 +765,51 @@ async function isEmptyExample() {
   }
 }
 
+async function sumExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 39: Quick Sum ===");
+
+  // Get total revenue from completed orders
+  const totalRevenue = await updater
+    .collection("orders")
+    .where("status", "==", "completed")
+    .sum("amount");
+
+  console.log(`Total revenue: $${totalRevenue}`);
+
+  // Sum with multiple conditions
+  const monthlyRevenue = await updater
+    .collection("orders")
+    .where("status", "==", "completed")
+    .where("createdAt", ">=", new Date("2026-03-01"))
+    .sum("amount");
+
+  console.log(`Monthly revenue: $${monthlyRevenue}`);
+}
+
+async function avgExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 40: Quick Average ===");
+
+  // Get average score of active users
+  const avgScore = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .avg("score");
+
+  console.log(`Average user score: ${avgScore}`);
+
+  // Average with filter
+  const avgPremiumScore = await updater
+    .collection("users")
+    .where("tier", "==", "premium")
+    .avg("score");
+
+  console.log(`Average premium user score: ${avgPremiumScore}`);
+}
+
 async function getAllExample() {
   const updater = new BatchUpdater(firestore);
 
@@ -1297,4 +1344,6 @@ Promise.all([
   countByExample(),
   fromJSONExample(),
   isEmptyExample(),
+  sumExample(),
+  avgExample(),
 ]).catch(console.error);
