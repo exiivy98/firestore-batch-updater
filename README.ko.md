@@ -29,6 +29,7 @@
 - 고유값 조회 - `distinct()`로 특정 필드의 중복 없는 값 목록 조회
 - JSON 내보내기/가져오기 - `toJSON()` / `fromJSON()`으로 문서 JSON 파일 내보내기/가져오기
 - 그룹별 개수 조회 - `countBy()`로 특정 필드 값별 문서 수 집계
+- 랜덤 샘플링 - `sample()`로 쿼리 결과에서 랜덤 문서 추출
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -123,6 +124,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `transform(fn, options?)` | 커스텀 함수로 문서 변환 | `TransformResult` |
 | `copyTo(target, options?)` | 다른 컬렉션으로 문서 복사/이동 | `CopyToResult` |
 | `distinct(field)` | 특정 필드의 고유값 조회 | `any[]` |
+| `sample(n)` | 매칭 문서에서 랜덤 샘플 추출 | `{ id, data }[]` |
 | `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
 | `fromJSON(path, options?)` | JSON 파일에서 문서 가져오기 | `FromJSONResult` |
 | `countBy(field)` | 필드 값별 문서 수 집계 | `CountByResult` |
@@ -777,6 +779,26 @@ const result2 = await updater
 // 라운드 트립: 내보내기 → 다른 컬렉션으로 가져오기
 await updater.collection("users").toJSON("./backup.json");
 await updater.collection("users_backup").fromJSON("./backup.json");
+```
+
+### 랜덤 샘플링
+
+```typescript
+// 랜덤으로 5개 문서 추출
+const samples = await updater.collection("users").sample(5);
+samples.forEach(doc => console.log(doc.id, doc.data.name));
+
+// 필터된 결과에서 랜덤 샘플
+const activeUsers = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .sample(3);
+
+// select와 함께 사용하여 메모리 효율 극대화
+const randomProducts = await updater
+  .collection("products")
+  .select("name", "price")
+  .sample(10);
 ```
 
 ### Dry Run 모드

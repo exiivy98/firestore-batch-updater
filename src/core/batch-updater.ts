@@ -1491,6 +1491,43 @@ export class BatchUpdater {
   }
 
   /**
+   * Get a random sample of matching documents
+   * @param n - Number of documents to sample
+   * @returns Array of randomly selected documents with { id, data }
+   */
+  async sample(n: number): Promise<{ id: string; data: Record<string, any> }[]> {
+    this.validateSetup();
+
+    if (!Number.isInteger(n) || n < 1) {
+      throw new Error("Sample size must be a positive integer");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return [];
+    }
+
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    }));
+
+    if (docs.length <= n) {
+      return docs;
+    }
+
+    // Fisher-Yates shuffle (partial - only shuffle first n elements)
+    for (let i = docs.length - 1; i > docs.length - 1 - n; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [docs[i], docs[j]] = [docs[j], docs[i]];
+    }
+
+    return docs.slice(docs.length - n);
+  }
+
+  /**
    * Export matching documents to a JSON file
    * @param filePath - Path for the output JSON file
    * @param options - Export options (pretty print)

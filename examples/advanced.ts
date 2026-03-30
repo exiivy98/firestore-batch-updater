@@ -1310,6 +1310,30 @@ async function fromJSONExample() {
   console.log(`Imported with new IDs: ${autoResult.createdIds}`);
 }
 
+async function sampleExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 41: Random Sampling ===");
+
+  // Get 5 random users
+  const randomUsers = await updater.collection("users").sample(5);
+  console.log("Random users:", randomUsers.map(u => u.data.name));
+
+  // Random sample from filtered results
+  const activeUsers = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .sample(3);
+  console.log("Random active users:", activeUsers.map(u => u.id));
+
+  // With select for memory efficiency
+  const randomProducts = await updater
+    .collection("products")
+    .select("name", "price")
+    .sample(10);
+  console.log("Random products:", randomProducts.map(p => `${p.data.name}: $${p.data.price}`));
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1346,4 +1370,5 @@ Promise.all([
   isEmptyExample(),
   sumExample(),
   avgExample(),
+  sampleExample(),
 ]).catch(console.error);

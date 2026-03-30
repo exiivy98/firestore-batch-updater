@@ -29,6 +29,7 @@ English | [한국어](./README.ko.md)
 - Distinct values - Use `distinct()` to get unique field values from matching documents
 - JSON export/import - Use `toJSON()` / `fromJSON()` to export/import documents as JSON
 - Group counting - Use `countBy()` to count documents grouped by field value
+- Random sampling - Use `sample()` to get random documents from query results
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -123,6 +124,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `transform(fn, options?)` | Transform docs with custom function | `TransformResult` |
 | `copyTo(target, options?)` | Copy/move docs to another collection | `CopyToResult` |
 | `distinct(field)` | Get unique values of a field | `any[]` |
+| `sample(n)` | Get random sample of matching documents | `{ id, data }[]` |
 | `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
 | `fromJSON(path, options?)` | Import documents from JSON file | `FromJSONResult` |
 | `countBy(field)` | Count documents grouped by field value | `CountByResult` |
@@ -790,6 +792,26 @@ const result2 = await updater
 // Round-trip: export → import to another collection
 await updater.collection("users").toJSON("./backup.json");
 await updater.collection("users_backup").fromJSON("./backup.json");
+```
+
+### Random Sampling
+
+```typescript
+// Get 5 random documents
+const samples = await updater.collection("users").sample(5);
+samples.forEach(doc => console.log(doc.id, doc.data.name));
+
+// Random sample from filtered results
+const activeUsers = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .sample(3);
+
+// With select for memory efficiency
+const randomProducts = await updater
+  .collection("products")
+  .select("name", "price")
+  .sample(10);
 ```
 
 ### Dry Run Mode
