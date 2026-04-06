@@ -1334,6 +1334,28 @@ async function sampleExample() {
   console.log("Random products:", randomProducts.map(p => `${p.data.name}: $${p.data.price}`));
 }
 
+async function pluckExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 42: Pluck Field Values ===");
+
+  // Get just email values as a simple array
+  const emails = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .pluck("email");
+  console.log("Active emails:", emails);
+
+  // Get prices and calculate total
+  const prices = await updater.collection("products").pluck("price");
+  const total = prices.reduce((sum: number, p: number) => sum + p, 0);
+  console.log(`Total price: $${total}`);
+
+  // Nested field support
+  const countries = await updater.collection("users").pluck("address.country");
+  console.log("Countries:", countries);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1371,4 +1393,5 @@ Promise.all([
   sumExample(),
   avgExample(),
   sampleExample(),
+  pluckExample(),
 ]).catch(console.error);

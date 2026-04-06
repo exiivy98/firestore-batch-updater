@@ -761,6 +761,34 @@ export class BatchUpdater {
   }
 
   /**
+   * Get an array of values for a specific field from matching documents
+   * Convenience wrapper around getFields() that returns only values (no IDs)
+   * @param field - Field path to extract values from
+   * @returns Array of field values (null/undefined values are excluded)
+   */
+  async pluck(field: string): Promise<any[]> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field path is required");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const values: any[] = [];
+
+    for (const doc of snapshot.docs) {
+      const value = this.getNestedValue(doc.data(), field);
+      if (value !== undefined && value !== null) {
+        values.push(value);
+      }
+    }
+
+    return values;
+  }
+
+  /**
    * Create multiple documents in batch
    * Note: This method does not work with collectionGroup()
    * @param documents - Array of documents to create

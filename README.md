@@ -30,6 +30,7 @@ English | [한국어](./README.ko.md)
 - JSON export/import - Use `toJSON()` / `fromJSON()` to export/import documents as JSON
 - Group counting - Use `countBy()` to count documents grouped by field value
 - Random sampling - Use `sample()` to get random documents from query results
+- Field value extraction - Use `pluck()` to get a simple array of field values
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -125,6 +126,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `copyTo(target, options?)` | Copy/move docs to another collection | `CopyToResult` |
 | `distinct(field)` | Get unique values of a field | `any[]` |
 | `sample(n)` | Get random sample of matching documents | `{ id, data }[]` |
+| `pluck(field)` | Get array of values for a specific field | `any[]` |
 | `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
 | `fromJSON(path, options?)` | Import documents from JSON file | `FromJSONResult` |
 | `countBy(field)` | Count documents grouped by field value | `CountByResult` |
@@ -792,6 +794,25 @@ const result2 = await updater
 // Round-trip: export → import to another collection
 await updater.collection("users").toJSON("./backup.json");
 await updater.collection("users_backup").fromJSON("./backup.json");
+```
+
+### Pluck Field Values
+
+```typescript
+// Get just the email values as a simple array
+const emails = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .pluck("email");
+console.log(emails); // ["alice@test.com", "bob@test.com", ...]
+
+// Get prices for calculation
+const prices = await updater.collection("products").pluck("price");
+const total = prices.reduce((sum, p) => sum + p, 0);
+
+// Nested field support
+const countries = await updater.collection("users").pluck("address.country");
+// ["US", "KR", "JP", ...]
 ```
 
 ### Random Sampling

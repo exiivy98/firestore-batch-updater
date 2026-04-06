@@ -30,6 +30,7 @@
 - JSON 내보내기/가져오기 - `toJSON()` / `fromJSON()`으로 문서 JSON 파일 내보내기/가져오기
 - 그룹별 개수 조회 - `countBy()`로 특정 필드 값별 문서 수 집계
 - 랜덤 샘플링 - `sample()`로 쿼리 결과에서 랜덤 문서 추출
+- 필드 값 추출 - `pluck()`로 특정 필드 값만 간단하게 배열로 추출
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -125,6 +126,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `copyTo(target, options?)` | 다른 컬렉션으로 문서 복사/이동 | `CopyToResult` |
 | `distinct(field)` | 특정 필드의 고유값 조회 | `any[]` |
 | `sample(n)` | 매칭 문서에서 랜덤 샘플 추출 | `{ id, data }[]` |
+| `pluck(field)` | 특정 필드 값만 배열로 추출 | `any[]` |
 | `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
 | `fromJSON(path, options?)` | JSON 파일에서 문서 가져오기 | `FromJSONResult` |
 | `countBy(field)` | 필드 값별 문서 수 집계 | `CountByResult` |
@@ -779,6 +781,25 @@ const result2 = await updater
 // 라운드 트립: 내보내기 → 다른 컬렉션으로 가져오기
 await updater.collection("users").toJSON("./backup.json");
 await updater.collection("users_backup").fromJSON("./backup.json");
+```
+
+### 필드 값 추출
+
+```typescript
+// 이메일 값만 간단한 배열로 추출
+const emails = await updater
+  .collection("users")
+  .where("status", "==", "active")
+  .pluck("email");
+console.log(emails); // ["alice@test.com", "bob@test.com", ...]
+
+// 가격 값 추출 후 계산
+const prices = await updater.collection("products").pluck("price");
+const total = prices.reduce((sum, p) => sum + p, 0);
+
+// 중첩 필드 지원
+const countries = await updater.collection("users").pluck("address.country");
+// ["US", "KR", "JP", ...]
 ```
 
 ### 랜덤 샘플링

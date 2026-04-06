@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-04-06
+
+### Added
+
+- **`pluck(field)` method** - Get an array of values for a specific field from matching documents
+  - Simpler alternative to `getFields()` - returns values only (no IDs)
+  - Automatically skips null/undefined values
+  - Works with `where()` for filtered extraction
+  - Supports nested fields with dot notation
+
 ## [1.13.0] - 2026-03-30
 
 ### Added
