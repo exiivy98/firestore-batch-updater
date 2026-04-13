@@ -20,7 +20,7 @@ English | [한국어](./README.ko.md)
 - Empty check - Use `isEmpty()` to check if no matching documents exist (opposite of `exists()`)
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
-- Quick aggregation - Use `sum()` and `avg()` for simple single-field aggregation
+- Quick aggregation - Use `sum()`, `avg()`, `min()`, `max()` for simple single-field aggregation
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
@@ -118,6 +118,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `aggregate(spec)` | Run sum/average/count queries | `AggregateResult` |
 | `sum(field)` | Get sum of a numeric field | `number \| null` |
 | `avg(field)` | Get average of a numeric field | `number \| null` |
+| `min(field)` | Get minimum value of a field | `any` |
+| `max(field)` | Get maximum value of a field | `any` |
 | `paginate(options)` | Cursor-based pagination | `PaginateResult` |
 | `bulkCreate(docs, options?)` | Create multiple docs with different data | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
@@ -565,6 +567,29 @@ console.log(`Average score: ${avgScore}`);
 // aggregate({ total: { op: "sum", field: "amount" } }) → sum("amount")
 // aggregate({ avg: { op: "average", field: "score" } }) → avg("score")
 ```
+
+### Min & Max
+
+```typescript
+// Get the minimum/maximum value of a field
+const cheapest = await updater.collection("products").min("price");
+const mostExpensive = await updater.collection("products").max("price");
+console.log(`Price range: $${cheapest} - $${mostExpensive}`);
+
+// Works with dates/timestamps too
+const earliestOrder = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .min("createdAt");
+
+// Returns null if no documents match
+const maxScore = await updater
+  .collection("users")
+  .where("status", "==", "nonexistent")
+  .max("score"); // null
+```
+
+> Note: Combining `where()` on one field with `min()/max()` on a different field may require a Firestore composite index. If you see a `FAILED_PRECONDITION` error, follow the link in the error message to create the required index.
 
 ### Cursor-Based Pagination
 

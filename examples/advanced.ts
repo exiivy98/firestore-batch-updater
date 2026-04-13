@@ -1356,6 +1356,30 @@ async function pluckExample() {
   console.log("Countries:", countries);
 }
 
+async function minMaxExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 43: Min & Max ===");
+
+  // Find price range
+  const cheapest = await updater.collection("products").min("price");
+  const mostExpensive = await updater.collection("products").max("price");
+  console.log(`Price range: $${cheapest} - $${mostExpensive}`);
+
+  // Earliest and latest records
+  const firstOrder = await updater.collection("orders").min("createdAt");
+  const lastOrder = await updater.collection("orders").max("createdAt");
+  console.log("First order at:", firstOrder);
+  console.log("Last order at:", lastOrder);
+
+  // With filter on same field (no composite index needed)
+  const minAboveZero = await updater
+    .collection("products")
+    .where("price", ">", 0)
+    .min("price");
+  console.log(`Cheapest positive price: $${minAboveZero}`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1394,4 +1418,5 @@ Promise.all([
   avgExample(),
   sampleExample(),
   pluckExample(),
+  minMaxExample(),
 ]).catch(console.error);

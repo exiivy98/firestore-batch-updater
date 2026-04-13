@@ -439,6 +439,70 @@ export class BatchUpdater {
   }
 
   /**
+   * Get the minimum value of a numeric field from matching documents
+   * Uses orderBy + limit(1) since Firestore doesn't support min/max aggregation natively
+   * @param field - Field path to find the minimum value of
+   * @returns Minimum field value, or null if no documents match
+   */
+  async min(field: string): Promise<any> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field is required for min operation");
+    }
+
+    let query: Query<DocumentData> = this.isCollectionGroup
+      ? this.firestore.collectionGroup(this.collectionPath!)
+      : this.firestore.collection(this.collectionPath!);
+
+    for (const condition of this.conditions) {
+      query = query.where(condition.field, condition.operator, condition.value);
+    }
+
+    query = query.orderBy(field, "asc").limit(1);
+
+    const snapshot = await query.get();
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const value = this.getNestedValue(snapshot.docs[0].data(), field);
+    return value ?? null;
+  }
+
+  /**
+   * Get the maximum value of a numeric field from matching documents
+   * Uses orderBy + limit(1) since Firestore doesn't support min/max aggregation natively
+   * @param field - Field path to find the maximum value of
+   * @returns Maximum field value, or null if no documents match
+   */
+  async max(field: string): Promise<any> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field is required for max operation");
+    }
+
+    let query: Query<DocumentData> = this.isCollectionGroup
+      ? this.firestore.collectionGroup(this.collectionPath!)
+      : this.firestore.collection(this.collectionPath!);
+
+    for (const condition of this.conditions) {
+      query = query.where(condition.field, condition.operator, condition.value);
+    }
+
+    query = query.orderBy(field, "desc").limit(1);
+
+    const snapshot = await query.get();
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const value = this.getNestedValue(snapshot.docs[0].data(), field);
+    return value ?? null;
+  }
+
+  /**
    * Get documents with cursor-based pagination
    * @param options - Pagination options (pageSize, startAfter cursor)
    * @returns Page of documents with cursor for next page

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-04-13
+
+### Added
+
+- **`min(field)` method** - Get the minimum value of a field from matching documents
+- **`max(field)` method** - Get the maximum value of a field from matching documents
+  - Uses `orderBy` + `limit(1)` since Firestore doesn't support min/max in aggregate queries
+  - Works with `where()` filtering
+  - Supports any comparable field type (numbers, strings, dates, timestamps)
+  - Returns `null` when no documents match
+  - Note: Combining `where()` on one field with `min()/max()` on a different field may require a Firestore composite index
+
 ## [1.14.0] - 2026-04-06
 
 ### Added

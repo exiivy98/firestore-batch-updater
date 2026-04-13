@@ -20,7 +20,7 @@
 - 비어있는지 확인 - `isEmpty()`로 매칭 문서가 없는지 확인 (`exists()`의 반대)
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
-- 간편 집계 - `sum()`과 `avg()`로 단일 필드 간편 집계
+- 간편 집계 - `sum()`, `avg()`, `min()`, `max()`로 단일 필드 간편 집계
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
@@ -118,6 +118,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `aggregate(spec)` | sum/average/count 집계 쿼리 | `AggregateResult` |
 | `sum(field)` | 숫자 필드 합계 조회 | `number \| null` |
 | `avg(field)` | 숫자 필드 평균 조회 | `number \| null` |
+| `min(field)` | 필드 최소값 조회 | `any` |
+| `max(field)` | 필드 최대값 조회 | `any` |
 | `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
 | `bulkCreate(docs, options?)` | 여러 문서를 각기 다른 데이터로 생성 | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
@@ -541,6 +543,29 @@ console.log(`평균 점수: ${avgScore}`);
 // aggregate({ total: { op: "sum", field: "amount" } }) → sum("amount")
 // aggregate({ avg: { op: "average", field: "score" } }) → avg("score")
 ```
+
+### 최솟값 & 최댓값
+
+```typescript
+// 필드의 최솟값/최댓값 조회
+const cheapest = await updater.collection("products").min("price");
+const mostExpensive = await updater.collection("products").max("price");
+console.log(`가격 범위: ${cheapest}원 - ${mostExpensive}원`);
+
+// 날짜/타임스탬프에도 사용 가능
+const earliestOrder = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .min("createdAt");
+
+// 매칭 문서가 없으면 null 반환
+const maxScore = await updater
+  .collection("users")
+  .where("status", "==", "nonexistent")
+  .max("score"); // null
+```
+
+> 참고: 한 필드에 `where()`를 걸고 다른 필드에 `min()/max()`를 사용할 경우 Firestore 복합 인덱스가 필요할 수 있습니다. `FAILED_PRECONDITION` 오류가 발생하면 오류 메시지의 링크를 통해 인덱스를 생성하세요.
 
 ### 커서 기반 페이지네이션
 
