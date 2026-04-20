@@ -31,6 +31,7 @@ English | [한국어](./README.ko.md)
 - Group counting - Use `countBy()` to count documents grouped by field value
 - Random sampling - Use `sample()` to get random documents from query results
 - Field value extraction - Use `pluck()` to get a simple array of field values
+- Document ID extraction - Use `pluckIds()` to get an array of matching document IDs
 - FieldValue support - Use `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()`, etc.
 - Subcollection & Collection Group - Query subcollections or all collections with the same name
 - Dry run mode - Simulate operations without making changes
@@ -129,6 +130,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `distinct(field)` | Get unique values of a field | `any[]` |
 | `sample(n)` | Get random sample of matching documents | `{ id, data }[]` |
 | `pluck(field)` | Get array of values for a specific field | `any[]` |
+| `pluckIds()` | Get array of matching document IDs | `string[]` |
 | `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
 | `fromJSON(path, options?)` | Import documents from JSON file | `FromJSONResult` |
 | `countBy(field)` | Count documents grouped by field value | `CountByResult` |
@@ -838,6 +840,32 @@ const total = prices.reduce((sum, p) => sum + p, 0);
 // Nested field support
 const countries = await updater.collection("users").pluck("address.country");
 // ["US", "KR", "JP", ...]
+```
+
+### Pluck Document IDs
+
+```typescript
+// Get all matching document IDs as an array
+const inactiveIds = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .pluckIds();
+console.log(inactiveIds); // ["user-1", "user-3", ...]
+
+// Chain with bulk operations for efficient workflows
+const expiredIds = await updater
+  .collection("sessions")
+  .where("expiresAt", "<", new Date())
+  .pluckIds();
+
+await updater.collection("sessions").bulkDelete(expiredIds);
+
+// Works with limit() and orderBy()
+const topIds = await updater
+  .collection("users")
+  .orderBy("score", "desc")
+  .limit(10)
+  .pluckIds();
 ```
 
 ### Random Sampling

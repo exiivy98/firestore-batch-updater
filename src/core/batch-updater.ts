@@ -853,6 +853,20 @@ export class BatchUpdater {
   }
 
   /**
+   * Get an array of document IDs from matching documents
+   * Useful for passing IDs directly to bulkUpdate(), bulkDelete(), etc.
+   * @returns Array of document IDs
+   */
+  async pluckIds(): Promise<string[]> {
+    this.validateSetup();
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    return snapshot.docs.map((doc) => doc.id);
+  }
+
+  /**
    * Create multiple documents in batch
    * Note: This method does not work with collectionGroup()
    * @param documents - Array of documents to create

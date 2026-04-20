@@ -1380,6 +1380,38 @@ async function minMaxExample() {
   console.log(`Cheapest positive price: $${minAboveZero}`);
 }
 
+async function pluckIdsExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 44: Pluck Document IDs ===");
+
+  // Get matching IDs as an array
+  const inactiveIds = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .pluckIds();
+  console.log("Inactive user IDs:", inactiveIds);
+
+  // Chain with bulkDelete for efficient cleanup
+  const expiredIds = await updater
+    .collection("sessions")
+    .where("expiresAt", "<", new Date())
+    .pluckIds();
+
+  if (expiredIds.length > 0) {
+    const deleted = await updater.collection("sessions").bulkDelete(expiredIds);
+    console.log(`Cleaned up ${deleted.successCount} expired sessions`);
+  }
+
+  // Get top-N IDs for ranking operations
+  const topIds = await updater
+    .collection("users")
+    .orderBy("score", "desc")
+    .limit(10)
+    .pluckIds();
+  console.log("Top 10 user IDs:", topIds);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1419,4 +1451,5 @@ Promise.all([
   sampleExample(),
   pluckExample(),
   minMaxExample(),
+  pluckIdsExample(),
 ]).catch(console.error);

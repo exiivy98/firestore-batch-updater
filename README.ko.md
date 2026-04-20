@@ -31,6 +31,7 @@
 - 그룹별 개수 조회 - `countBy()`로 특정 필드 값별 문서 수 집계
 - 랜덤 샘플링 - `sample()`로 쿼리 결과에서 랜덤 문서 추출
 - 필드 값 추출 - `pluck()`로 특정 필드 값만 간단하게 배열로 추출
+- 문서 ID 추출 - `pluckIds()`로 매칭 문서의 ID만 배열로 추출
 - FieldValue 지원 - `increment()`, `arrayUnion()`, `delete()`, `serverTimestamp()` 등 사용 가능
 - 서브컬렉션 & 컬렉션 그룹 - 서브컬렉션 쿼리 또는 동일 이름의 모든 컬렉션 쿼리
 - Dry Run 모드 - 실제 변경 없이 작업 시뮬레이션
@@ -129,6 +130,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `distinct(field)` | 특정 필드의 고유값 조회 | `any[]` |
 | `sample(n)` | 매칭 문서에서 랜덤 샘플 추출 | `{ id, data }[]` |
 | `pluck(field)` | 특정 필드 값만 배열로 추출 | `any[]` |
+| `pluckIds()` | 매칭 문서의 ID만 배열로 추출 | `string[]` |
 | `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
 | `fromJSON(path, options?)` | JSON 파일에서 문서 가져오기 | `FromJSONResult` |
 | `countBy(field)` | 필드 값별 문서 수 집계 | `CountByResult` |
@@ -825,6 +827,32 @@ const total = prices.reduce((sum, p) => sum + p, 0);
 // 중첩 필드 지원
 const countries = await updater.collection("users").pluck("address.country");
 // ["US", "KR", "JP", ...]
+```
+
+### 문서 ID 추출
+
+```typescript
+// 매칭 문서의 ID만 배열로 추출
+const inactiveIds = await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .pluckIds();
+console.log(inactiveIds); // ["user-1", "user-3", ...]
+
+// bulkDelete/bulkUpdate와 체이닝하여 효율적 처리
+const expiredIds = await updater
+  .collection("sessions")
+  .where("expiresAt", "<", new Date())
+  .pluckIds();
+
+await updater.collection("sessions").bulkDelete(expiredIds);
+
+// limit, orderBy와 함께 사용 가능
+const topIds = await updater
+  .collection("users")
+  .orderBy("score", "desc")
+  .limit(10)
+  .pluckIds();
 ```
 
 ### 랜덤 샘플링
