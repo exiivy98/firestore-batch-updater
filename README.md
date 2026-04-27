@@ -21,6 +21,7 @@ English | [한국어](./README.ko.md)
 - Get all documents - Use `getAll()` to retrieve all matching documents with data
 - Aggregation - Use `aggregate()` for server-side `sum`, `average`, and `count` operations
 - Quick aggregation - Use `sum()`, `avg()`, `min()`, `max()` for simple single-field aggregation
+- Combined stats - Use `fieldStats()` to get sum/avg/min/max/count in one call
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
@@ -121,6 +122,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `avg(field)` | Get average of a numeric field | `number \| null` |
 | `min(field)` | Get minimum value of a field | `any` |
 | `max(field)` | Get maximum value of a field | `any` |
+| `fieldStats(field)` | Get sum/avg/min/max/count for a field in one call | `FieldStatsResult` |
 | `paginate(options)` | Cursor-based pagination | `PaginateResult` |
 | `bulkCreate(docs, options?)` | Create multiple docs with different data | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | Update multiple docs with different data | `BulkUpdateResult` |
@@ -182,6 +184,7 @@ All write operations support an optional `options` parameter:
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
+| `FieldStatsResult` | `sum`, `avg`, `min`, `max`, `count` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
 | `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
@@ -592,6 +595,26 @@ const maxScore = await updater
 ```
 
 > Note: Combining `where()` on one field with `min()/max()` on a different field may require a Firestore composite index. If you see a `FAILED_PRECONDITION` error, follow the link in the error message to create the required index.
+
+### Combined Field Stats
+
+```typescript
+// Get sum, avg, min, max, count for a single field in one call
+const stats = await updater.collection("products").fieldStats("price");
+console.log(stats);
+// { sum: 12500, avg: 250, min: 50, max: 500, count: 50 }
+
+// Useful for dashboards
+const orderStats = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .fieldStats("amount");
+
+console.log(`Total revenue: $${orderStats.sum}`);
+console.log(`Average order: $${orderStats.avg}`);
+console.log(`Order count: ${orderStats.count}`);
+console.log(`Range: $${orderStats.min} - $${orderStats.max}`);
+```
 
 ### Cursor-Based Pagination
 

@@ -498,6 +498,18 @@ export interface CopyToResult {
 }
 
 /**
+ * Result of fieldStats operation
+ * Combined statistics for a single field
+ */
+export interface FieldStatsResult {
+  sum: number | null;
+  avg: number | null;
+  min: any;
+  max: any;
+  count: number;
+}
+
+/**
  * Result of countBy operation
  */
 export interface CountByResult {

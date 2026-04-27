@@ -1412,6 +1412,28 @@ async function pluckIdsExample() {
   console.log("Top 10 user IDs:", topIds);
 }
 
+async function fieldStatsExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 45: Combined Field Stats ===");
+
+  // Get all stats for a price field in one call
+  const priceStats = await updater.collection("products").fieldStats("price");
+  console.log("Price stats:", priceStats);
+  // { sum, avg, min, max, count }
+
+  // Useful for dashboard analytics
+  const orderStats = await updater
+    .collection("orders")
+    .where("status", "==", "completed")
+    .fieldStats("amount");
+
+  console.log(`Revenue: $${orderStats.sum}`);
+  console.log(`Average order: $${orderStats.avg}`);
+  console.log(`Orders: ${orderStats.count}`);
+  console.log(`Order size range: $${orderStats.min} - $${orderStats.max}`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1452,4 +1474,5 @@ Promise.all([
   pluckExample(),
   minMaxExample(),
   pluckIdsExample(),
+  fieldStatsExample(),
 ]).catch(console.error);

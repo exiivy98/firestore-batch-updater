@@ -21,6 +21,7 @@
 - 전체 문서 조회 - `getAll()`로 매칭되는 모든 문서 데이터 조회
 - 집계 쿼리 - `aggregate()`로 서버 사이드 `sum`, `average`, `count` 연산
 - 간편 집계 - `sum()`, `avg()`, `min()`, `max()`로 단일 필드 간편 집계
+- 통합 통계 - `fieldStats()`로 sum/avg/min/max/count 한 번에 조회
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
@@ -121,6 +122,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `avg(field)` | 숫자 필드 평균 조회 | `number \| null` |
 | `min(field)` | 필드 최소값 조회 | `any` |
 | `max(field)` | 필드 최대값 조회 | `any` |
+| `fieldStats(field)` | sum/avg/min/max/count 한 번에 조회 | `FieldStatsResult` |
 | `paginate(options)` | 커서 기반 페이지네이션 | `PaginateResult` |
 | `bulkCreate(docs, options?)` | 여러 문서를 각기 다른 데이터로 생성 | `BulkCreateResult` |
 | `bulkUpdate(updates, options?)` | 여러 문서에 각기 다른 데이터 업데이트 | `BulkUpdateResult` |
@@ -182,6 +184,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `UpsertResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
 | `DeleteResult` | `successCount`, `failureCount`, `totalCount`, `deletedIds[]`, `failedDocIds?`, `logFilePath?` |
 | `AggregateResult` | `{ [alias]: number \| null }` |
+| `FieldStatsResult` | `sum`, `avg`, `min`, `max`, `count` |
 | `PaginateResult` | `docs[]`, `nextCursor`, `hasMore` |
 | `BulkCreateResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `BulkUpdateResult` | `successCount`, `failureCount`, `totalCount`, `failedDocIds?`, `logFilePath?` |
@@ -568,6 +571,26 @@ const maxScore = await updater
 ```
 
 > 참고: 한 필드에 `where()`를 걸고 다른 필드에 `min()/max()`를 사용할 경우 Firestore 복합 인덱스가 필요할 수 있습니다. `FAILED_PRECONDITION` 오류가 발생하면 오류 메시지의 링크를 통해 인덱스를 생성하세요.
+
+### 통합 필드 통계
+
+```typescript
+// 한 필드의 sum, avg, min, max, count를 한 번에 조회
+const stats = await updater.collection("products").fieldStats("price");
+console.log(stats);
+// { sum: 12500, avg: 250, min: 50, max: 500, count: 50 }
+
+// 대시보드에서 유용
+const orderStats = await updater
+  .collection("orders")
+  .where("status", "==", "completed")
+  .fieldStats("amount");
+
+console.log(`총 매출: ${orderStats.sum}원`);
+console.log(`평균 주문액: ${orderStats.avg}원`);
+console.log(`주문 수: ${orderStats.count}건`);
+console.log(`범위: ${orderStats.min}원 - ${orderStats.max}원`);
+```
 
 ### 커서 기반 페이지네이션
 

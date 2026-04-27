@@ -57,6 +57,7 @@ export type {
   CountByResult,
   FromJSONOptions,
   FromJSONResult,
+  FieldStatsResult,
 } from "./types";
 
 // Export utility functions (optional, for advanced users)

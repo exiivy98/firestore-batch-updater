@@ -51,6 +51,7 @@ import type {
   CountByResult,
   FromJSONOptions,
   FromJSONResult,
+  FieldStatsResult,
 } from "../types";
 
 import {
@@ -500,6 +501,38 @@ export class BatchUpdater {
 
     const value = this.getNestedValue(snapshot.docs[0].data(), field);
     return value ?? null;
+  }
+
+  /**
+   * Get combined statistics (sum, avg, min, max, count) for a single field
+   * Convenience method that runs aggregate + min + max in parallel
+   * @param field - Field path to compute statistics for
+   * @returns Object with sum, avg, min, max, count
+   */
+  async fieldStats(field: string): Promise<FieldStatsResult> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field is required for fieldStats operation");
+    }
+
+    const [aggResult, minVal, maxVal] = await Promise.all([
+      this.aggregate({
+        _sum: { op: "sum", field },
+        _avg: { op: "average", field },
+        _count: { op: "count" },
+      }),
+      this.min(field),
+      this.max(field),
+    ]);
+
+    return {
+      sum: aggResult._sum,
+      avg: aggResult._avg,
+      min: minVal,
+      max: maxVal,
+      count: (aggResult._count ?? 0) as number,
+    };
   }
 
   /**
