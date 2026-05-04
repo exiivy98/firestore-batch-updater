@@ -517,6 +517,14 @@ export interface CountByResult {
 }
 
 /**
+ * Result of groupBy operation
+ * Field value → array of matching documents
+ */
+export interface GroupByResult {
+  [value: string]: { id: string; data: Record<string, any> }[];
+}
+
+/**
  * Options for fromJSON operation
  */
 export interface FromJSONOptions {

@@ -30,6 +30,7 @@
 - 고유값 조회 - `distinct()`로 특정 필드의 중복 없는 값 목록 조회
 - JSON 내보내기/가져오기 - `toJSON()` / `fromJSON()`으로 문서 JSON 파일 내보내기/가져오기
 - 그룹별 개수 조회 - `countBy()`로 특정 필드 값별 문서 수 집계
+- 그룹별 문서 조회 - `groupBy()`로 필드 값별로 문서 그룹핑
 - 랜덤 샘플링 - `sample()`로 쿼리 결과에서 랜덤 문서 추출
 - 필드 값 추출 - `pluck()`로 특정 필드 값만 간단하게 배열로 추출
 - 문서 ID 추출 - `pluckIds()`로 매칭 문서의 ID만 배열로 추출
@@ -136,6 +137,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `toJSON(path, options?)` | 문서를 JSON 파일로 내보내기 | `ToJSONResult` |
 | `fromJSON(path, options?)` | JSON 파일에서 문서 가져오기 | `FromJSONResult` |
 | `countBy(field)` | 필드 값별 문서 수 집계 | `CountByResult` |
+| `groupBy(field)` | 필드 값별 문서 그룹핑 | `GroupByResult` |
 | `getFields(field)` | 특정 필드 값 조회 | `FieldValueResult[]` |
 
 ### 옵션
@@ -194,6 +196,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `ToJSONResult` | `filePath`, `documentCount` |
 | `FromJSONResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `CountByResult` | `{ [value]: number }` |
+| `GroupByResult` | `{ [value]: { id, data }[] }` |
 | `FieldValueResult` | `id`, `value` |
 
 ## 사용 예시
@@ -810,6 +813,33 @@ console.log(roleCounts); // { admin: 5, user: 120, moderator: 25 }
 // 중첩 필드 지원
 const countryCounts = await updater.collection("users").countBy("address.country");
 console.log(countryCounts); // { US: 80, KR: 45, JP: 25 }
+```
+
+### 필드 값별 문서 그룹핑
+
+```typescript
+// 필드 값별로 문서를 그룹핑 (전체 문서 데이터 포함)
+const usersByRole = await updater.collection("users").groupBy("role");
+
+console.log(`관리자: ${usersByRole.admin.length}명`);
+usersByRole.admin.forEach(user => {
+  console.log(`- ${user.id}: ${user.data.name}`);
+});
+
+// where 필터와 함께 사용
+const activeProducts = await updater
+  .collection("products")
+  .where("status", "==", "active")
+  .groupBy("category");
+
+for (const [category, products] of Object.entries(activeProducts)) {
+  console.log(`${category}: ${products.length}개`);
+}
+
+// 중첩 필드 지원
+const usersByCountry = await updater
+  .collection("users")
+  .groupBy("address.country");
 ```
 
 ### JSON 가져오기

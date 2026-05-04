@@ -30,6 +30,7 @@ English | [한국어](./README.ko.md)
 - Distinct values - Use `distinct()` to get unique field values from matching documents
 - JSON export/import - Use `toJSON()` / `fromJSON()` to export/import documents as JSON
 - Group counting - Use `countBy()` to count documents grouped by field value
+- Group documents - Use `groupBy()` to group matching documents by a field value
 - Random sampling - Use `sample()` to get random documents from query results
 - Field value extraction - Use `pluck()` to get a simple array of field values
 - Document ID extraction - Use `pluckIds()` to get an array of matching document IDs
@@ -136,6 +137,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `toJSON(path, options?)` | Export documents to JSON file | `ToJSONResult` |
 | `fromJSON(path, options?)` | Import documents from JSON file | `FromJSONResult` |
 | `countBy(field)` | Count documents grouped by field value | `CountByResult` |
+| `groupBy(field)` | Group documents by field value | `GroupByResult` |
 | `getFields(field)` | Get specific field values | `FieldValueResult[]` |
 
 ### Options
@@ -194,6 +196,7 @@ All write operations support an optional `options` parameter:
 | `ToJSONResult` | `filePath`, `documentCount` |
 | `FromJSONResult` | `successCount`, `failureCount`, `totalCount`, `createdIds[]`, `failedDocIds?`, `logFilePath?` |
 | `CountByResult` | `{ [value]: number }` |
+| `GroupByResult` | `{ [value]: { id, data }[] }` |
 | `FieldValueResult` | `id`, `value` |
 
 ## Usage Examples
@@ -823,6 +826,33 @@ console.log(roleCounts); // { admin: 5, user: 120, moderator: 25 }
 // Nested fields
 const countryCounts = await updater.collection("users").countBy("address.country");
 console.log(countryCounts); // { US: 80, KR: 45, JP: 25 }
+```
+
+### Group Documents by Field Value
+
+```typescript
+// Group documents by a field value (with full document data)
+const usersByRole = await updater.collection("users").groupBy("role");
+
+console.log(`Admins: ${usersByRole.admin.length}`);
+usersByRole.admin.forEach(user => {
+  console.log(`- ${user.id}: ${user.data.name}`);
+});
+
+// With where filter
+const activeProducts = await updater
+  .collection("products")
+  .where("status", "==", "active")
+  .groupBy("category");
+
+for (const [category, products] of Object.entries(activeProducts)) {
+  console.log(`${category}: ${products.length} products`);
+}
+
+// Nested field support
+const usersByCountry = await updater
+  .collection("users")
+  .groupBy("address.country");
 ```
 
 ### Import from JSON

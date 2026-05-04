@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-05-04
+
+### Added
+
+- **`groupBy(field)` method** - Group matching documents by a specific field value
+  - Returns `{ [value]: { id, data }[] }` mapping each unique field value to its documents
+  - Completes the `distinct()` (unique values), `countBy()` (counts), `groupBy()` (full docs) trio
+  - Works with `where()` filtering
+  - Supports nested fields with dot notation
+  - Skips null/undefined values
+
+### Types
+
+- Added `GroupByResult` type
+
 ## [1.17.0] - 2026-04-27
 
 ### Added

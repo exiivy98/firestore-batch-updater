@@ -52,6 +52,7 @@ import type {
   FromJSONOptions,
   FromJSONResult,
   FieldStatsResult,
+  GroupByResult,
 } from "../types";
 
 import {
@@ -1737,6 +1738,38 @@ export class BatchUpdater {
     }
 
     return counts;
+  }
+
+  /**
+   * Group matching documents by a specific field value
+   * @param field - Field path to group by
+   * @returns Object mapping field values to arrays of matching documents { id, data }
+   */
+  async groupBy(field: string): Promise<GroupByResult> {
+    this.validateSetup();
+
+    if (!field || typeof field !== "string") {
+      throw new Error("Field path is required");
+    }
+
+    const query = this.buildQuery();
+    const snapshot = await query.get();
+
+    const groups: GroupByResult = {};
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const value = this.getNestedValue(data, field);
+      if (value === undefined || value === null) continue;
+
+      const key = String(value);
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push({ id: doc.id, data });
+    }
+
+    return groups;
   }
 
   /**

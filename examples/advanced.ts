@@ -1434,6 +1434,37 @@ async function fieldStatsExample() {
   console.log(`Order size range: $${orderStats.min} - $${orderStats.max}`);
 }
 
+async function groupByExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 46: Group Documents by Field Value ===");
+
+  // Group users by role with full document data
+  const usersByRole = await updater.collection("users").groupBy("role");
+
+  for (const [role, users] of Object.entries(usersByRole)) {
+    console.log(`\n${role} (${users.length}):`);
+    users.forEach(u => console.log(`  - ${u.id}: ${u.data.name}`));
+  }
+
+  // Group filtered results
+  const activeProducts = await updater
+    .collection("products")
+    .where("status", "==", "active")
+    .groupBy("category");
+
+  for (const [category, products] of Object.entries(activeProducts)) {
+    const totalPrice = products.reduce((sum, p) => sum + (p.data.price || 0), 0);
+    console.log(`${category}: ${products.length} items, total $${totalPrice}`);
+  }
+
+  // Nested field grouping
+  const usersByCountry = await updater
+    .collection("users")
+    .groupBy("address.country");
+  console.log("Countries:", Object.keys(usersByCountry));
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1475,4 +1506,5 @@ Promise.all([
   minMaxExample(),
   pluckIdsExample(),
   fieldStatsExample(),
+  groupByExample(),
 ]).catch(console.error);
