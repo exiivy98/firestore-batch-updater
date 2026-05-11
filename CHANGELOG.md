@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-05-11
+
+### Added
+
+- **`has(id)` method** - Check if a document with a specific ID exists in the collection
+  - Returns `boolean` - `true` if the document exists, `false` otherwise
+  - Efficient existence check without reading document data (unlike `getOne()`)
+  - Works with subcollection paths
+  - Not available with `collectionGroup()` (use `exists()` with `where()` instead)
+
 ## [1.18.0] - 2026-05-04
 
 ### Added

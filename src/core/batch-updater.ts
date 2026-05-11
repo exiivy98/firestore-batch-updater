@@ -275,6 +275,30 @@ export class BatchUpdater {
   }
 
   /**
+   * Check if a document with the given ID exists in the collection
+   * @param id - Document ID to check
+   * @returns true if the document exists, false otherwise
+   */
+  async has(id: string): Promise<boolean> {
+    this.validateSetup();
+
+    if (!id || typeof id !== "string") {
+      throw new Error("Document ID is required");
+    }
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "has() cannot be used with collectionGroup(). Use exists() with where conditions instead."
+      );
+    }
+
+    const docRef = this.firestore.collection(this.collectionPath!).doc(id);
+    const docSnapshot = await docRef.get();
+
+    return docSnapshot.exists;
+  }
+
+  /**
    * Update the first document matching the query conditions
    * @param updateData - Data to update
    * @returns Result with success status and document id

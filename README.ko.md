@@ -24,6 +24,7 @@
 - 통합 통계 - `fieldStats()`로 sum/avg/min/max/count 한 번에 조회
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
+- 문서 ID 존재 확인 - `has(id)`로 데이터 읽기 없이 특정 문서 ID 존재 여부 확인
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
@@ -109,6 +110,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `isEmpty()` | 매칭되는 문서가 없는지 확인 | `boolean` |
 | `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
 | `getOne(id)` | ID로 문서 직접 조회 | `{ id, data } \| null` |
+| `has(id)` | 문서 ID 존재 여부 확인 | `boolean` |
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
@@ -644,6 +646,24 @@ const userBasic = await updater
 const order = await updater
   .collection("users/user-123/orders")
   .getOne("order-456");
+```
+
+### 문서 ID 존재 확인
+
+```typescript
+// 특정 문서 ID가 존재하는지 확인 (데이터 읽기 없이 효율적)
+const exists = await updater.collection("users").has("user-123");
+
+if (exists) {
+  console.log("사용자가 존재합니다!");
+} else {
+  console.log("사용자를 찾을 수 없음");
+}
+
+// 가드 절에 유용
+if (!(await updater.collection("users").has(userId))) {
+  throw new Error("사용자를 찾을 수 없습니다");
+}
 ```
 
 ### 벌크 업데이트

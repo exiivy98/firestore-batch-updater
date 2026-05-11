@@ -24,6 +24,7 @@ English | [한국어](./README.ko.md)
 - Combined stats - Use `fieldStats()` to get sum/avg/min/max/count in one call
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
+- Document ID check - Use `has(id)` to check if a specific document ID exists without reading data
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
@@ -109,6 +110,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `isEmpty()` | Check if no matching documents exist | `boolean` |
 | `findOne()` | Find first matching document | `{ id, data } \| null` |
 | `getOne(id)` | Get document by ID directly | `{ id, data } \| null` |
+| `has(id)` | Check if document ID exists | `boolean` |
 | `getAll()` | Get all matching documents | `{ id, data }[]` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
@@ -663,6 +665,24 @@ const profile = await updater
   .collection("users")
   .select("name", "avatar")
   .getOne("user-123");
+```
+
+### Check Document Exists by ID
+
+```typescript
+// Check if a specific document ID exists (without reading data)
+const exists = await updater.collection("users").has("user-123");
+
+if (exists) {
+  console.log("User exists!");
+} else {
+  console.log("User not found");
+}
+
+// Useful for guard clauses before operations
+if (!(await updater.collection("users").has(userId))) {
+  throw new Error("User not found");
+}
 ```
 
 ### Bulk Update with Different Data

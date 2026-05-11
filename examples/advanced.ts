@@ -1465,6 +1465,27 @@ async function groupByExample() {
   console.log("Countries:", Object.keys(usersByCountry));
 }
 
+async function hasExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 47: Check Document Exists by ID ===");
+
+  // Check if a specific user exists
+  const userExists = await updater.collection("users").has("user-123");
+  console.log("User exists:", userExists); // true or false
+
+  // Useful for guard clauses
+  if (!(await updater.collection("users").has("user-999"))) {
+    console.log("User not found, skipping operation");
+  }
+
+  // Works with subcollections
+  const orderExists = await updater
+    .collection("users/user-123/orders")
+    .has("order-456");
+  console.log("Order exists:", orderExists);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1507,4 +1528,5 @@ Promise.all([
   pluckIdsExample(),
   fieldStatsExample(),
   groupByExample(),
+  hasExample(),
 ]).catch(console.error);
