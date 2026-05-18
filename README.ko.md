@@ -25,6 +25,7 @@
 - 커서 페이지네이션 - `paginate()`로 메모리 효율적인 페이지 단위 조회
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 문서 ID 존재 확인 - `has(id)`로 데이터 읽기 없이 특정 문서 ID 존재 여부 확인
+- 다중 ID 조회 - `pick(ids)`로 여러 문서 ID를 한 번에 효율적으로 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
@@ -111,6 +112,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `findOne()` | 첫 번째 매칭 문서 조회 | `{ id, data } \| null` |
 | `getOne(id)` | ID로 문서 직접 조회 | `{ id, data } \| null` |
 | `has(id)` | 문서 ID 존재 여부 확인 | `boolean` |
+| `pick(ids)` | 여러 문서 ID로 한 번에 조회 | `{ id, data }[]` |
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
@@ -664,6 +666,24 @@ if (exists) {
 if (!(await updater.collection("users").has(userId))) {
   throw new Error("사용자를 찾을 수 없습니다");
 }
+```
+
+### 여러 문서 ID로 조회
+
+```typescript
+// 여러 문서를 한 번에 조회 (getOne() 여러 번 호출보다 효율적)
+const users = await updater
+  .collection("users")
+  .pick(["user-1", "user-2", "user-3"]);
+
+console.log(`${users.length}명 조회됨`);
+users.forEach((u) => console.log(`${u.id}: ${u.data.name}`));
+
+// 존재하지 않는 ID는 자동으로 건너뜀
+const docs = await updater
+  .collection("products")
+  .pick(["prod-1", "non-existent", "prod-3"]);
+// prod-1, prod-3만 반환 (존재하는 경우)
 ```
 
 ### 벌크 업데이트

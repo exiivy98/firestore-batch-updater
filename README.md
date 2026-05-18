@@ -25,6 +25,7 @@ English | [한국어](./README.ko.md)
 - Cursor pagination - Use `paginate()` for memory-efficient page-by-page iteration
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Document ID check - Use `has(id)` to check if a specific document ID exists without reading data
+- Multi-ID lookup - Use `pick(ids)` to get multiple documents by IDs in a single efficient call
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
@@ -111,6 +112,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `findOne()` | Find first matching document | `{ id, data } \| null` |
 | `getOne(id)` | Get document by ID directly | `{ id, data } \| null` |
 | `has(id)` | Check if document ID exists | `boolean` |
+| `pick(ids)` | Get multiple documents by IDs | `{ id, data }[]` |
 | `getAll()` | Get all matching documents | `{ id, data }[]` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
@@ -683,6 +685,24 @@ if (exists) {
 if (!(await updater.collection("users").has(userId))) {
   throw new Error("User not found");
 }
+```
+
+### Get Multiple Documents by IDs
+
+```typescript
+// Get multiple documents in a single call (more efficient than multiple getOne)
+const users = await updater
+  .collection("users")
+  .pick(["user-1", "user-2", "user-3"]);
+
+console.log(`Found ${users.length} users`);
+users.forEach((u) => console.log(`${u.id}: ${u.data.name}`));
+
+// Non-existent IDs are silently skipped
+const docs = await updater
+  .collection("products")
+  .pick(["prod-1", "non-existent", "prod-3"]);
+// Returns only prod-1 and prod-3 (if they exist)
 ```
 
 ### Bulk Update with Different Data

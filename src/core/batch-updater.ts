@@ -299,6 +299,38 @@ export class BatchUpdater {
   }
 
   /**
+   * Get multiple documents by their IDs in a single call
+   * @param ids - Array of document IDs to retrieve
+   * @returns Array of documents with id and data (skips non-existent documents)
+   */
+  async pick(ids: string[]): Promise<{ id: string; data: Record<string, any> }[]> {
+    this.validateSetup();
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new Error("Document IDs array is required and must not be empty");
+    }
+
+    if (this.isCollectionGroup) {
+      throw new Error(
+        "pick() cannot be used with collectionGroup(). Use getAll() with where conditions instead."
+      );
+    }
+
+    const docRefs = ids.map((id) =>
+      this.firestore.collection(this.collectionPath!).doc(id)
+    );
+
+    const snapshots = await this.firestore.getAll(...docRefs);
+
+    return snapshots
+      .filter((snap) => snap.exists)
+      .map((snap) => ({
+        id: snap.id,
+        data: snap.data() as Record<string, any>,
+      }));
+  }
+
+  /**
    * Update the first document matching the query conditions
    * @param updateData - Data to update
    * @returns Result with success status and document id

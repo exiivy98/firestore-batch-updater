@@ -1486,6 +1486,32 @@ async function hasExample() {
   console.log("Order exists:", orderExists);
 }
 
+async function pickExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 48: Get Multiple Documents by IDs ===");
+
+  // Get multiple documents in one call
+  const users = await updater
+    .collection("users")
+    .pick(["user-1", "user-2", "user-3"]);
+
+  console.log(`Found ${users.length} users`);
+  users.forEach((u) => console.log(`  ${u.id}: ${u.data.name}`));
+
+  // Non-existent IDs are silently skipped
+  const mixed = await updater
+    .collection("products")
+    .pick(["prod-1", "non-existent", "prod-3"]);
+  console.log(`Found ${mixed.length} of 3 requested products`);
+
+  // Works with subcollections
+  const orders = await updater
+    .collection("users/user-1/orders")
+    .pick(["order-1", "order-2"]);
+  console.log(`Found ${orders.length} orders`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1529,4 +1555,5 @@ Promise.all([
   fieldStatsExample(),
   groupByExample(),
   hasExample(),
+  pickExample(),
 ]).catch(console.error);

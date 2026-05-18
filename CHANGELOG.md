@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-05-18
+
+### Added
+
+- **`pick(ids)` method** - Get multiple documents by their IDs in a single call
+  - Returns `{ id, data }[]` for all existing documents
+  - Skips non-existent documents (no errors thrown)
+  - Uses Firestore's `getAll()` for efficient batch retrieval
+  - More efficient than calling `getOne()` multiple times
+  - Works with subcollection paths
+  - Not available with `collectionGroup()` (use `getAll()` with `where()` instead)
+
 ## [1.19.0] - 2026-05-11
 
 ### Added
