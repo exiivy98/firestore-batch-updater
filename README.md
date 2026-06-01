@@ -26,6 +26,7 @@ English | [한국어](./README.ko.md)
 - Direct ID lookup - Use `getOne()` for fast document retrieval by ID
 - Document ID check - Use `has(id)` to check if a specific document ID exists without reading data
 - Multi-ID lookup - Use `pick(ids)` to get multiple documents by IDs in a single efficient call
+- First & Last - Use `first()` / `last()` to get the first or last document by orderBy
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
@@ -113,6 +114,8 @@ console.log(`Updated ${result.successCount} documents`);
 | `getOne(id)` | Get document by ID directly | `{ id, data } \| null` |
 | `has(id)` | Check if document ID exists | `boolean` |
 | `pick(ids)` | Get multiple documents by IDs | `{ id, data }[]` |
+| `first()` | Get first document by orderBy | `{ id, data } \| null` |
+| `last()` | Get last document by orderBy | `{ id, data } \| null` |
 | `getAll()` | Get all matching documents | `{ id, data }[]` |
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
@@ -703,6 +706,32 @@ const docs = await updater
   .collection("products")
   .pick(["prod-1", "non-existent", "prod-3"]);
 // Returns only prod-1 and prod-3 (if they exist)
+```
+
+### First & Last Document
+
+```typescript
+// Get the first document (by orderBy)
+const youngest = await updater
+  .collection("users")
+  .orderBy("age", "asc")
+  .first();
+console.log(`Youngest: ${youngest?.data.name}`);
+
+// Get the last document (by orderBy)
+const oldest = await updater
+  .collection("users")
+  .orderBy("age", "asc")
+  .last();
+console.log(`Oldest: ${oldest?.data.name}`);
+
+// Works with where and select
+const cheapest = await updater
+  .collection("products")
+  .where("price", ">=", 10)
+  .select("name", "price")
+  .orderBy("price", "asc")
+  .first();
 ```
 
 ### Bulk Update with Different Data

@@ -1512,6 +1512,42 @@ async function pickExample() {
   console.log(`Found ${orders.length} orders`);
 }
 
+async function firstLastExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 49: First & Last Document ===");
+
+  // Get the youngest user
+  const youngest = await updater
+    .collection("users")
+    .orderBy("age", "asc")
+    .first();
+  console.log("Youngest:", youngest?.data.name);
+
+  // Get the oldest user
+  const oldest = await updater
+    .collection("users")
+    .orderBy("age", "asc")
+    .last();
+  console.log("Oldest:", oldest?.data.name);
+
+  // Latest order by date (desc first = most recent)
+  const latestOrder = await updater
+    .collection("orders")
+    .orderBy("createdAt", "desc")
+    .first();
+  console.log("Latest order:", latestOrder?.id);
+
+  // With where and select
+  const cheapest = await updater
+    .collection("products")
+    .where("price", ">=", 10)
+    .select("name", "price")
+    .orderBy("price", "asc")
+    .first();
+  console.log("Cheapest (>= $10):", cheapest?.data.name, cheapest?.data.price);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1556,4 +1592,5 @@ Promise.all([
   groupByExample(),
   hasExample(),
   pickExample(),
+  firstLastExample(),
 ]).catch(console.error);

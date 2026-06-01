@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-05-25
+
+### Added
+
+- **`first()` method** - Get the first document based on orderBy conditions
+  - Requires at least one `orderBy()` to be set
+  - Returns `{ id, data }` or `null` if no documents match
+  - Works with `where()` and `select()` for filtered/partial retrieval
+- **`last()` method** - Get the last document based on orderBy conditions
+  - Internally reverses the orderBy direction for efficient retrieval
+  - Returns `{ id, data }` or `null` if no documents match
+  - Works with `where()` and `select()` for filtered/partial retrieval
+  - Note: Combining `where()` on one field with `orderBy()` on a different field may require a Firestore composite index
+
 ## [1.20.0] - 2026-05-18
 
 ### Added

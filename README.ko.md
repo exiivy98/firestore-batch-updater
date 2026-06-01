@@ -26,6 +26,7 @@
 - ID 직접 조회 - `getOne()`으로 문서 ID로 빠른 조회
 - 문서 ID 존재 확인 - `has(id)`로 데이터 읽기 없이 특정 문서 ID 존재 여부 확인
 - 다중 ID 조회 - `pick(ids)`로 여러 문서 ID를 한 번에 효율적으로 조회
+- 처음 & 마지막 문서 - `first()` / `last()`로 정렬 기준 첫 번째/마지막 문서 조회
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
@@ -113,6 +114,8 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `getOne(id)` | ID로 문서 직접 조회 | `{ id, data } \| null` |
 | `has(id)` | 문서 ID 존재 여부 확인 | `boolean` |
 | `pick(ids)` | 여러 문서 ID로 한 번에 조회 | `{ id, data }[]` |
+| `first()` | 정렬 기준 첫 번째 문서 조회 | `{ id, data } \| null` |
+| `last()` | 정렬 기준 마지막 문서 조회 | `{ id, data } \| null` |
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
@@ -684,6 +687,32 @@ const docs = await updater
   .collection("products")
   .pick(["prod-1", "non-existent", "prod-3"]);
 // prod-1, prod-3만 반환 (존재하는 경우)
+```
+
+### 처음 & 마지막 문서 조회
+
+```typescript
+// 정렬 기준 첫 번째 문서 조회
+const youngest = await updater
+  .collection("users")
+  .orderBy("age", "asc")
+  .first();
+console.log(`최연소: ${youngest?.data.name}`);
+
+// 정렬 기준 마지막 문서 조회
+const oldest = await updater
+  .collection("users")
+  .orderBy("age", "asc")
+  .last();
+console.log(`최고령: ${oldest?.data.name}`);
+
+// where, select와 함께 사용
+const cheapest = await updater
+  .collection("products")
+  .where("price", ">=", 10)
+  .select("name", "price")
+  .orderBy("price", "asc")
+  .first();
 ```
 
 ### 벌크 업데이트

@@ -331,6 +331,72 @@ export class BatchUpdater {
   }
 
   /**
+   * Get the first document based on the current orderBy conditions
+   * Requires at least one orderBy() to be set
+   * @returns First document with id and data, or null if no documents match
+   */
+  async first(): Promise<{ id: string; data: Record<string, any> } | null> {
+    this.validateSetup();
+
+    if (this.orderByConditions.length === 0) {
+      throw new Error("first() requires at least one orderBy() condition");
+    }
+
+    const query = this.buildQuery().limit(1);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, data: doc.data() };
+  }
+
+  /**
+   * Get the last document based on the current orderBy conditions
+   * Requires at least one orderBy() to be set
+   * Reverses the orderBy direction internally to fetch the last document efficiently
+   * @returns Last document with id and data, or null if no documents match
+   */
+  async last(): Promise<{ id: string; data: Record<string, any> } | null> {
+    this.validateSetup();
+
+    if (this.orderByConditions.length === 0) {
+      throw new Error("last() requires at least one orderBy() condition");
+    }
+
+    let query: Query<DocumentData> = this.isCollectionGroup
+      ? this.firestore.collectionGroup(this.collectionPath!)
+      : this.firestore.collection(this.collectionPath!);
+
+    for (const condition of this.conditions) {
+      query = query.where(condition.field, condition.operator, condition.value);
+    }
+
+    for (const orderBy of this.orderByConditions) {
+      query = query.orderBy(
+        orderBy.field,
+        orderBy.direction === "asc" ? "desc" : "asc"
+      );
+    }
+
+    if (this.selectedFields && this.selectedFields.length > 0) {
+      query = query.select(...this.selectedFields);
+    }
+
+    query = query.limit(1);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, data: doc.data() };
+  }
+
+  /**
    * Update the first document matching the query conditions
    * @param updateData - Data to update
    * @returns Result with success status and document id
