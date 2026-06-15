@@ -1548,6 +1548,32 @@ async function firstLastExample() {
   console.log("Cheapest (>= $10):", cheapest?.data.name, cheapest?.data.price);
 }
 
+async function updateFieldExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 50: Single Field Update ===");
+
+  // Update status for all inactive users
+  const result = await updater
+    .collection("users")
+    .where("status", "==", "inactive")
+    .updateField("status", "archived");
+
+  if ("successCount" in result) {
+    console.log(`Archived ${result.successCount} users`);
+  }
+
+  // Increment views with FieldValue
+  const { FieldValue } = require("firebase-admin/firestore");
+  await updater.collection("products").updateField("views", FieldValue.increment(1));
+
+  // Update nested field
+  await updater
+    .collection("users")
+    .where("role", "==", "admin")
+    .updateField("settings.notifications", true);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1593,4 +1619,5 @@ Promise.all([
   hasExample(),
   pickExample(),
   firstLastExample(),
+  updateFieldExample(),
 ]).catch(console.error);

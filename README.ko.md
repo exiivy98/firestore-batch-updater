@@ -27,6 +27,7 @@
 - 문서 ID 존재 확인 - `has(id)`로 데이터 읽기 없이 특정 문서 ID 존재 여부 확인
 - 다중 ID 조회 - `pick(ids)`로 여러 문서 ID를 한 번에 효율적으로 조회
 - 처음 & 마지막 문서 - `first()` / `last()`로 정렬 기준 첫 번째/마지막 문서 조회
+- 단일 필드 업데이트 - `updateField()`로 객체 감싸기 없이 특정 필드 하나만 간편하게 업데이트
 - 벌크 작업 - `bulkCreate()`, `bulkUpdate()`, `bulkDelete()`로 여러 문서에 각기 다른 데이터로 효율적 처리
 - 문서 변환 - `transform()`으로 각 문서에 커스텀 로직 적용 (가격 인상, 데이터 마이그레이션 등)
 - 복사 & 이동 - `copyTo()`로 컬렉션 간 문서 복사/이동 (데이터 변환 옵션 포함)
@@ -119,6 +120,7 @@ console.log(`${result.successCount}개 문서 업데이트 완료`);
 | `getAll()` | 모든 매칭 문서 조회 | `{ id, data }[]` |
 | `preview(data)` | 업데이트 전 미리보기 | `PreviewResult` |
 | `update(data, options?)` | 매칭되는 문서 업데이트 | `UpdateResult` |
+| `updateField(field, value, options?)` | 매칭되는 문서의 단일 필드 업데이트 | `UpdateResult` |
 | `updateOne(data)` | 첫 번째 매칭 문서 업데이트 | `{ success, id }` |
 | `create(docs, options?)` | 새 문서 생성 | `CreateResult` |
 | `createOne(data, id?)` | 단일 문서 생성 | `{ success, id }` |
@@ -215,6 +217,16 @@ const result = await updater
   .collection("users")
   .where("status", "==", "inactive")
   .update({ status: "archived" });
+
+// 단일 필드 간편 업데이트
+await updater
+  .collection("users")
+  .where("status", "==", "inactive")
+  .updateField("status", "archived");
+
+// FieldValue 및 중첩 필드 지원
+await updater.collection("products").updateField("views", FieldValue.increment(1));
+await updater.collection("users").updateField("settings.theme", "dark");
 ```
 
 ### 문서 생성

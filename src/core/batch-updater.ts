@@ -739,6 +739,26 @@ export class BatchUpdater {
   }
 
   /**
+   * Update a single field on all matching documents
+   * Convenience wrapper around update() for single-field updates
+   * @param field - Field path to update (supports dot notation for nested fields)
+   * @param value - New value for the field
+   * @param options - Update options
+   * @returns Update result
+   */
+  async updateField(
+    field: string,
+    value: any,
+    options: UpdateOptions = {}
+  ): Promise<(UpdateResult & { logFilePath?: string }) | DryRunResult> {
+    if (!field || typeof field !== "string") {
+      throw new Error("Field path is required");
+    }
+
+    return this.update({ [field]: value }, options);
+  }
+
+  /**
    * Execute batch update operation
    * @param updateData - Data to update
    * @param options - Update options (e.g., progress callback, log options, batchSize for pagination, dryRun)

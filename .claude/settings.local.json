@@ -4,7 +4,9 @@
       "Bash(npx tsx:*)",
       "Bash(npm run build:*)",
       "Bash(npm test)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(grep -n \"| \\\\`update\\(data\" /Users/jaesuk/dev/firestore-batch-updater/README.md)",
+      "Bash(grep -n \"| \\\\`update\\(data\" /Users/jaesuk/dev/firestore-batch-updater/README.ko.md)"
     ]
   }
 }
