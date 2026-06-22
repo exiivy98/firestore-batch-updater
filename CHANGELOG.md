@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-06-08
+
+### Added
+
+- **`renameField(oldField, newField, options?)` method** - Rename a field on all matching documents
+  - Copies the value to the new field and deletes the old field in a single atomic update
+  - Documents without the old field are automatically skipped
+  - Works with `where()` to rename only on filtered documents
+  - Supports all `transform()` options: `batchSize`, `onProgress`, `log`
+  - Returns `TransformResult` with success/failure/skipped counts
+
 ## [1.22.0] - 2026-06-01
 
 ### Added

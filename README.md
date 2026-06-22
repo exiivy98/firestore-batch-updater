@@ -28,6 +28,7 @@ English | [한국어](./README.ko.md)
 - Multi-ID lookup - Use `pick(ids)` to get multiple documents by IDs in a single efficient call
 - First & Last - Use `first()` / `last()` to get the first or last document by orderBy
 - Single field update - Use `updateField()` to update one field on all matching documents without wrapping in an object
+- Rename field - Use `renameField()` to rename a field on all matching documents atomically
 - Bulk operations - Use `bulkCreate()`, `bulkUpdate()`, `bulkDelete()` for efficient multi-document operations with different data each
 - Transform - Use `transform()` to apply custom logic to each document (e.g., price increase, data migration)
 - Copy & Move - Use `copyTo()` to copy/move documents between collections with optional data transformation
@@ -121,6 +122,7 @@ console.log(`Updated ${result.successCount} documents`);
 | `preview(data)` | Preview changes before update | `PreviewResult` |
 | `update(data, options?)` | Update matching documents | `UpdateResult` |
 | `updateField(field, value, options?)` | Update a single field on matching documents | `UpdateResult` |
+| `renameField(old, new, options?)` | Rename a field on matching documents | `TransformResult` |
 | `updateOne(data)` | Update first matching document | `{ success, id }` |
 | `create(docs, options?)` | Create new documents | `CreateResult` |
 | `createOne(data, id?)` | Create a single document | `{ success, id }` |
@@ -227,6 +229,12 @@ await updater
 // Works with FieldValue and nested fields
 await updater.collection("products").updateField("views", FieldValue.increment(1));
 await updater.collection("users").updateField("settings.theme", "dark");
+
+// Rename a field (atomic: copy value + delete old field)
+const result = await updater
+  .collection("users")
+  .renameField("userName", "name");
+console.log(`Renamed: ${result.successCount}, Skipped: ${result.skippedCount}`);
 ```
 
 ### Create Documents

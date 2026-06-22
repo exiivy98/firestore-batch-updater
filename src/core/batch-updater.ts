@@ -10,7 +10,7 @@ import type {
   QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
-import { AggregateField } from "firebase-admin/firestore";
+import { AggregateField, FieldValue } from "firebase-admin/firestore";
 
 import type {
   UpdateOptions,
@@ -756,6 +756,45 @@ export class BatchUpdater {
     }
 
     return this.update({ [field]: value }, options);
+  }
+
+  /**
+   * Rename a field on all matching documents
+   * Copies the value to the new field and deletes the old field in a single atomic update
+   * Documents that don't have the old field are skipped
+   * @param oldField - Current field path
+   * @param newField - New field path
+   * @param options - Transform options (batchSize, onProgress, log)
+   * @returns Transform result with success/skipped/failure counts
+   */
+  async renameField(
+    oldField: string,
+    newField: string,
+    options: TransformOptions = {}
+  ): Promise<TransformResult & { logFilePath?: string }> {
+    if (!oldField || typeof oldField !== "string") {
+      throw new Error("Old field path is required");
+    }
+    if (!newField || typeof newField !== "string") {
+      throw new Error("New field path is required");
+    }
+    if (oldField === newField) {
+      throw new Error("Old and new field paths must be different");
+    }
+
+    return this.transform(
+      (doc) => {
+        const value = this.getNestedValue(doc.data, oldField);
+        if (value === undefined || value === null) {
+          return null;
+        }
+        return {
+          [newField]: value,
+          [oldField]: FieldValue.delete(),
+        };
+      },
+      options
+    );
   }
 
   /**

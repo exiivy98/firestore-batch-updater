@@ -1574,6 +1574,25 @@ async function updateFieldExample() {
     .updateField("settings.notifications", true);
 }
 
+async function renameFieldExample() {
+  const updater = new BatchUpdater(firestore);
+
+  console.log("\n=== Example 51: Rename Field ===");
+
+  // Rename "userName" to "name" on all users
+  const result = await updater
+    .collection("users")
+    .renameField("userName", "name");
+  console.log(`Renamed: ${result.successCount}, Skipped: ${result.skippedCount}`);
+
+  // Rename only on active users
+  const filtered = await updater
+    .collection("users")
+    .where("status", "==", "active")
+    .renameField("oldEmail", "email");
+  console.log(`Active users renamed: ${filtered.successCount}`);
+}
+
 // Run examples
 Promise.all([
   advancedExample(),
@@ -1620,4 +1639,5 @@ Promise.all([
   pickExample(),
   firstLastExample(),
   updateFieldExample(),
+  renameFieldExample(),
 ]).catch(console.error);
